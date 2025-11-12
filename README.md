@@ -1,32 +1,47 @@
 # Screenshot
 
-A simple command-line standalone AOT-compiled C# application that captures screenshots of specific windows by title or ID.
+A simple command-line standalone AOT-compiled C# application that captures screenshots of specific windows by title, process ID, or window ID.
 
 ## Overview
 
-`screenshot.exe` takes a screenshot of a window matching the specified title or ID and saves it to a PNG file. This is similar to the functionality in `doc\example.cpp`, except instead of capturing the entire desktop, it captures a specific window by its title or ID.
+`screenshot.exe` takes a screenshot of a window matching the specified criteria and saves it to a PNG file. This is similar to the functionality in `doc\example.cpp`, except instead of capturing the entire desktop, it captures a specific window.
 
 ## Usage
 
 ```bash
-screenshot.exe "window title" ./path/to/output.png
-# OR
-screenshot.exe <window-id> ./path/to/output.png
+# Capture by window title
+screenshot.exe --title "window title" output.png
 
-# Run without arguments to see list of windows with IDs
+# Capture by process ID
+screenshot.exe --pid 1234 output.png
+
+# Capture by window ID
+screenshot.exe --id A32F output.png
+
+# Run without arguments to see list of windows with IDs and PIDs
 screenshot.exe
 ```
 
 ### Arguments
 
-1. **Window Title or ID** (required) -- Either the title of the window to capture OR the window ID. If a window title is provided and multiple windows share the same title, one will be captured (which one is unspecified). Window IDs uniquely identify a specific window.
-2. **Output Path** (required) -- The file path where the PNG screenshot will be saved.
+The tool requires exactly one selection flag followed by its value, and an output path:
+
+- `--title <title>` -- Capture a window by its title. If multiple windows share the same title, one will be captured (which one is unspecified).
+- `--pid <process-id>` -- Capture the main window of a process by its numeric process ID. If the process has multiple windows, the main window will be captured.
+- `--id <window-id>` -- Capture a window by its alphanumeric window ID. Window IDs uniquely identify a specific window.
+- `<output-path>` (required) -- The file path where the PNG screenshot will be saved.
 
 ### Help Mode
 
-If `screenshot.exe` is run without exactly two command-line arguments, it will print usage information followed by a list of all currently open windows. Each line in the window list shows an alphanumeric window ID, followed by a space, followed by the quoted window title. This makes it easy to find the exact window title or ID to use.
+If `screenshot.exe` is run without arguments, it will print usage information followed by a list of all currently open windows. Each line in the window list shows:
 
-Format: `<id> "window title"`
+Format: `<window-id>\t<pid>\t"window title"`
+
+Where:
+- `<window-id>` is an alphanumeric identifier for the window
+- `<pid>` is the numeric process ID
+- `"window title"` is the window title in quotes
+- Fields are separated by tab characters (`\t`)
 
 ### Example
 
@@ -36,18 +51,18 @@ screenshot.exe
 # Output shows:
 # Currently open windows:
 #
-#   A32F "Untitled - Notepad"
-#   9939x4Q9 "Google Chrome"
-#   123 "Visual Studio Code"
+#   A32F	5432	"Untitled - Notepad"
+#   9939x4Q9	8124	"Google Chrome"
+#   123	4567	"Visual Studio Code"
 
 # Capture a Notepad window by title
-screenshot.exe "Untitled - Notepad" ./screenshots/notepad.png
+screenshot.exe --title "Untitled - Notepad" ./screenshots/notepad.png
 
-# Capture a browser window by title
-screenshot.exe "Google Chrome" ./output.png
+# Capture a browser window by process ID
+screenshot.exe --pid 8124 ./output.png
 
-# Capture a window by ID (alphanumeric)
-screenshot.exe A32F ./output.png
+# Capture a window by its unique ID
+screenshot.exe --id A32F ./output.png
 ```
 
 ## Technical Details
