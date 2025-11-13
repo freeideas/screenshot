@@ -32,6 +32,42 @@ This ensures:
 - Chronological ordering
 - Easy identification of what was captured
 
+## Creating Controlled Test Windows
+
+For reliable, repeatable testing, use `cmd.exe` with a custom title:
+
+```python
+import subprocess
+import time
+
+# Launch cmd.exe with a unique, predictable title
+cmd_process = subprocess.Popen(
+    ['cmd.exe', '/K', 'title MyTestWindow'],
+    creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+)
+cmd_pid = cmd_process.pid
+time.sleep(2)  # Give window time to appear
+
+# Find the window by matching its PID
+# ... run screenshot.exe to get window list ...
+# ... match window by PID ...
+# ... use the matched window's exact title for testing ...
+
+# Always clean up when done
+try:
+    cmd_process.terminate()
+    cmd_process.wait(timeout=5)
+except Exception:
+    cmd_process.kill()
+```
+
+**Why this approach works:**
+- `cmd.exe` is available on every Windows system
+- The `title` command sets a completely predictable window title
+- Matching by PID ensures you get the exact window you launched
+- Unique titles avoid conflicts with other windows
+- Clean up is straightforward
+
 ## AI-Based Visual Verification
 
 Instead of pixel-by-pixel comparison, we use AI to verify visual correctness:
