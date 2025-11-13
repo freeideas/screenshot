@@ -54,25 +54,30 @@ def main():
     """Test the entire flow from start to shutdown."""
 
     try:
+        print("Starting test...", flush=True)
+
         # Execute flow steps -- verify each $REQ_ID with assertions
 
         # Example: Start app
+        print("Launching application...", flush=True)
         process = subprocess.Popen(['./release/app.exe'])
+        print(f"Process started with PID {process.pid}", flush=True)
         time.sleep(1)
         assert process.poll() is None, "Process failed to start"  # $REQ_STARTUP_001
 
         # More assertions for each $REQ_ID...
 
-        print("✓ All tests passed")
+        print("✓ All tests passed", flush=True)
         return 0
 
     except AssertionError as e:
-        print(f"✗ Test failed: {e}")
+        print(f"✗ Test failed: {e}", flush=True)
         return 1
     finally:
         # CRITICAL: Clean up -- kill processes, close connections
         # Use kill() not terminate/signals (Windows signals propagate to parent)
         if 'process' in locals() and process.poll() is None:
+            print("Cleaning up process...", flush=True)
             process.kill()
             process.wait(timeout=5)
 
@@ -130,16 +135,58 @@ Create one test function that:
 
 **Critical:** Tests MUST NOT leave processes running or resources locked.
 
-**Debugging hangs:** Add lots of `print()` statements describing exactly what the test is doing at each step. Unexplained hangs are common bugs -- print statements are your best debugging tool. Include timestamps, step names, and expected behavior:
+**Debugging hangs:** Add lots of `print()` statements describing exactly what the test is doing at each step. Unexplained hangs are common bugs -- print statements are your best debugging tool.
+
+**🔴 CRITICAL: Always use `flush=True` on every print statement:**
+
 ```python
-print("Starting application...")
+print("Starting application...", flush=True)
 process = subprocess.Popen(['./release/app.exe'])
-print(f"Process started with PID {process.pid}, waiting for startup...")
+print(f"Process started with PID {process.pid}, waiting for startup...", flush=True)
 time.sleep(2)
-print("Checking if process is still alive...")
+print("Checking if process is still alive...", flush=True)
 ```
 
+**Why flush=True matters:**
+- Python buffers print output by default
+- When a test hangs or times out, buffered output may not be captured
+- The test runner captures output in real-time, but only sees what's been flushed
+- Using `flush=True` ensures every message is immediately visible in timeout diagnostics
+- This makes debugging hanging tests dramatically easier -- you'll see exactly where it stopped
+
+**Without flush=True:** Test hangs, you see nothing, can't debug
+**With flush=True:** Test hangs, you see "Starting subprocess.run()..." as the last line, immediately know where to look
+
 **Windows warning:** Always use `process.kill()` for cleanup. Never use `terminate()`, `send_signal()`, or `CTRL_C_EVENT` -- on Windows these propagate to the parent process and kill the test runner.
+
+### Always Flush Output
+
+**Every `print()` statement in tests must use `flush=True`.**
+
+Tests frequently hang due to subprocess issues, network waits, or deadlocks. When the test runner (test.py) times out a hanging test, it needs to show you exactly where execution stopped. Python's default output buffering can hide this critical information.
+
+**Good practice:**
+```python
+print("Step 1: Starting server...", flush=True)
+server = start_server()
+print(f"Step 2: Server PID {server.pid}, checking health...", flush=True)
+health_check()
+print("Step 3: Running test request...", flush=True)
+```
+
+**Bad practice (output may be lost on hang):**
+```python
+print("Step 1: Starting server...")  # ← Will be lost if test hangs here
+server = start_server()
+```
+
+This is especially critical for:
+- Steps that involve subprocess launches
+- Network operations that might block
+- File operations that might deadlock
+- Any operation with a timeout
+
+The test runner has been enhanced to capture output in real-time and kill hanging processes, but it can only show you output that has been flushed.
 
 ### Step 5: Tag Each Assertion
 
@@ -271,6 +318,39 @@ for f in release_files:
 - Build scripts or build tooling
 
 These should not be in the flow files (see @the-system/prompts/WRITE_REQS.md).
+
+---
+
+## GUI/Visual Testing
+
+For requirements about **visual output or window rendering** (screenshots, window appearance, GUI elements), use the `test-screenshot.py` tool.
+
+**When to use:**
+- Requirements about what appears on screen
+- Window decorations, title bars, visual elements
+- Screenshot capture verification
+- Any requirement mentioning "window", "display", "screenshot", or visual output
+
+**Example:**
+```python
+def main():
+    """Test that window renders correctly."""
+
+    prompt = "Verify the window shows a 'Save' button in the toolbar"
+
+    result = subprocess.run(
+        ['uv', 'run', '--script', './the-system/scripts/test-screenshot.py',
+         '--wait', '3', '--launch', './release/myapp.exe'],
+        input=prompt, capture_output=True, text=True, encoding='utf-8'
+    )
+
+    # test-screenshot.py exits 0 if AI says YES, 1 if NO
+    assert result.returncode == 0, "Screenshot verification failed"  # $REQ_GUI_001
+```
+
+The tool launches the app, waits, captures by PID, kills the process, and asks AI if the screenshot matches the description.
+
+**See `readme/TESTING.md` for full details on GUI testing strategy.**
 
 ---
 
