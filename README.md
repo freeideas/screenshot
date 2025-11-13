@@ -52,7 +52,7 @@ Where:
 # Run without arguments to see available windows
 screenshot.exe
 # Output shows:
-# Currently open windows:
+# Currently open windows (id,pid,title):
 #
 #   A32F	5432	"Untitled - Notepad"
 #   9939x4Q9	8124	"Google Chrome"

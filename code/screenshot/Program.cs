@@ -84,7 +84,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("Run without arguments to see list of windows with IDs and PIDs.");
         Console.WriteLine();
-        Console.WriteLine("Currently open windows:");
+        Console.WriteLine("Currently open windows (id,pid,title):");
     }
 
     private static void ListWindows()

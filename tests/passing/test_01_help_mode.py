@@ -37,7 +37,7 @@ def parse_window_list(output: str):
         if not line:
             continue
         # Skip header/usage lines
-        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows:"):
+        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows (id,pid,title):"):
             continue
         parts = line.split('\t')
         if len(parts) != 3:
@@ -70,7 +70,7 @@ def main() -> int:
     assert "Usage:" in out, "Expected usage information in help output"  # $REQ_HELP_001
 
     # Requirement: Must include a header for the window list
-    assert "Currently open windows:" in out, "Expected window list header in help output"  # $REQ_HELP_005
+    assert "Currently open windows (id,pid,title):" in out, "Expected window list header in help output"  # $REQ_HELP_005
 
     # Requirement: When run without arguments, it must print a list of all currently open windows.
     windows = parse_window_list(out)

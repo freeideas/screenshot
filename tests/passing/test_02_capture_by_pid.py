@@ -39,7 +39,7 @@ def parse_window_list(output: str):
         if not line:
             continue
         # Skip header lines
-        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows:"):
+        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows (id,pid,title):"):
             continue
         parts = line.split('\t')
         if len(parts) != 3:
