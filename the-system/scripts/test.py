@@ -13,6 +13,9 @@ if sys.stdout.encoding != 'utf-8':
 import os
 import subprocess
 import argparse
+import time
+import threading
+import signal
 from pathlib import Path
 from datetime import datetime
 
@@ -21,12 +24,18 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent.parent
 os.chdir(project_root)
 
+# Path to bundled uv.exe
+UV_EXE = str(project_root / 'the-system' / 'bin' / 'uv.exe')
+
 # Create reports directory
 reports_dir = Path('./reports')
 reports_dir.mkdir(exist_ok=True)
 
 def run_command(cmd, description, capture_output=False, test_filename=None, timeout=3600):
-    """Run a command and return exit code, optionally capturing output."""
+    """Run a command and return exit code, optionally capturing output.
+
+    Uses Popen with real-time output capture and proper process killing on timeout.
+    """
     print(f"\n{'=' * 60}")
     print(f"{description}")
     print(f"{'=' * 60}\n")
@@ -37,32 +46,86 @@ def run_command(cmd, description, capture_output=False, test_filename=None, time
     else:
         cmd_list = cmd
 
-    try:
-        if capture_output:
-            result = subprocess.run(
-                cmd_list,
-                shell=False,
-                timeout=timeout,
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',  # Replace undecodable bytes instead of crashing
-            )
-            stdout = result.stdout or ""
-            stderr = result.stderr or ""
-            return result.returncode, stdout + stderr
-        else:
+    if not capture_output:
+        # For non-captured output (like build), use simple subprocess.run
+        try:
             result = subprocess.run(cmd_list, shell=False, timeout=timeout)
             return result.returncode
-    except subprocess.TimeoutExpired as exc:
-        timeout_message = f"\nCommand timed out after {timeout} seconds\n"
-        if capture_output:
-            stdout = exc.stdout or ""
-            stderr = exc.stderr or ""
-            output = stdout + stderr + timeout_message
-            return 124, output
-        print(timeout_message)
-        return 124
+        except subprocess.TimeoutExpired:
+            print(f"\nCommand timed out after {timeout} seconds\n")
+            return 124
+
+    # For captured output, use Popen with real-time streaming and proper kill
+    process = subprocess.Popen(
+        cmd_list,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,  # Line buffered
+    )
+
+    output_lines = []
+    start_time = time.time()
+    timed_out = False
+
+    def read_stream(stream, output_list, prefix=""):
+        """Read from stream line by line and append to output_list."""
+        try:
+            for line in iter(stream.readline, ''):
+                if not line:
+                    break
+                output_list.append(prefix + line)
+        except Exception as e:
+            output_list.append(f"\n[ERROR reading stream: {e}]\n")
+
+    # Start threads to read stdout and stderr concurrently
+    stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, output_lines))
+    stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, output_lines, "[stderr] "))
+    stdout_thread.daemon = True
+    stderr_thread.daemon = True
+    stdout_thread.start()
+    stderr_thread.start()
+
+    # Monitor for timeout
+    while process.poll() is None:
+        elapsed = time.time() - start_time
+        if elapsed > timeout:
+            timed_out = True
+            output_lines.append(f"\n{'=' * 60}\n")
+            output_lines.append(f"[TIMEOUT] Process exceeded {timeout} seconds\n")
+            output_lines.append(f"{'=' * 60}\n")
+            output_lines.append(f"[KILLING PROCESS] Attempting to terminate PID {process.pid}...\n")
+
+            # Try graceful termination first
+            try:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                    output_lines.append(f"[KILLED] Process terminated gracefully\n")
+                except subprocess.TimeoutExpired:
+                    # Force kill if termination didn't work
+                    process.kill()
+                    process.wait(timeout=5)
+                    output_lines.append(f"[KILLED] Process force-killed\n")
+            except Exception as e:
+                output_lines.append(f"[ERROR] Failed to kill process: {e}\n")
+
+            output_lines.append(f"\n[DIAGNOSTIC] Last output above shows where the test hung\n")
+            break
+        time.sleep(0.1)  # Check every 100ms
+
+    # Wait for reading threads to finish (give them a moment to catch up)
+    stdout_thread.join(timeout=1)
+    stderr_thread.join(timeout=1)
+
+    # Get final return code
+    if timed_out:
+        returncode = 124
+    else:
+        returncode = process.returncode
+
+    output = ''.join(output_lines)
+    return returncode, output
 
 def write_report(test_filename, exit_code, output):
     """Write a timestamped report to the reports directory."""
@@ -75,7 +138,7 @@ def write_report(test_filename, exit_code, output):
     report_name = f"{timestamp}_{test_name}.txt"
     report_path = reports_dir / report_name
 
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, 'w') as f:
         f.write(f"{test_name} {status}\n")
         f.write(output)
 
@@ -98,7 +161,7 @@ def main():
         print("Run work-queue.py to see what needs to be done")
         sys.exit(1)
 
-    exit_code = run_command('uv run --script ./tests/build.py', 'Building project')
+    exit_code = run_command([UV_EXE, 'run', '--script', './tests/build.py'], 'Building project')
     if exit_code != 0:
         print(f"\nBuild failed with exit code {exit_code}")
         sys.exit(exit_code)
@@ -133,7 +196,7 @@ def main():
     if args.test_file:
         # Run single test file
         exit_code, output = run_command(
-            f'uv run --script {test_target}',
+            [UV_EXE, 'run', '--script', test_target],
             f'Running test: {test_target}',
             capture_output=True,
             test_filename=test_target,
@@ -152,7 +215,7 @@ def main():
         failed = []
         for test_file in test_files:
             exit_code, output = run_command(
-                f'uv run --script {test_file}',
+                [UV_EXE, 'run', '--script', test_file],
                 f'Running test: {test_file}',
                 capture_output=True,
                 test_filename=test_file,

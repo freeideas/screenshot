@@ -4,7 +4,7 @@ A simple command-line standalone AOT-compiled C# application that captures scree
 
 ## Overview
 
-`screenshot.exe` takes a screenshot of a window matching the specified criteria and saves it to a PNG file. This is similar to the functionality in `doc\example.cpp`, except instead of capturing the entire desktop, it captures a specific window.
+`screenshot.exe` takes a screenshot of a window matching the specified criteria and saves it to a PNG file. This is similar to the functionality in `doc\example.cpp`.
 
 ## Usage
 

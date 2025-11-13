@@ -19,17 +19,7 @@ screenshot.exe must accept an output file path as the final command-line argumen
 
 screenshot.exe must capture a screenshot of the window matching the specified title.
 
-## $REQ_CAPTURE_TITLE_004: Save as PNG File
-**Source:** ./README.md (Section: "Technical Details")
-
-screenshot.exe must save the captured screenshot in PNG format to the specified output path.
-
-## $REQ_CAPTURE_TITLE_005: Include Window Decorations
-**Source:** ./README.md (Section: "Technical Details")
-
-The captured screenshot must include the full window including title bar and decorations.
-
-## $REQ_CAPTURE_TITLE_006: Handle Multiple Windows With Same Title
+## $REQ_CAPTURE_TITLE_004: Handle Multiple Windows With Same Title
 **Source:** ./README.md (Section: "Arguments")
 
 If a window title is provided and multiple windows share the same title, screenshot.exe must capture one of those windows.

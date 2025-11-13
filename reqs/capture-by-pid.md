@@ -23,13 +23,3 @@ screenshot.exe must capture a screenshot of the main window belonging to the pro
 **Source:** ./README.md (Section: "Arguments")
 
 If the process has multiple windows, screenshot.exe must capture the main window of that process.
-
-## $REQ_CAPTURE_PID_005: Save as PNG File
-**Source:** ./README.md (Section: "Technical Details")
-
-screenshot.exe must save the captured screenshot in PNG format to the specified output path.
-
-## $REQ_CAPTURE_PID_006: Include Window Decorations
-**Source:** ./README.md (Section: "Technical Details")
-
-The captured screenshot must include the full window including title bar and decorations.

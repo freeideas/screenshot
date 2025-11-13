@@ -1,0 +1,16 @@
+# Temporary files
+tmp/
+*.pyc
+__pycache__/
+
+# Reports (generated files)
+reports/
+
+# Build artifacts
+*.exe
+!the-system/**/*.exe
+
+# Force include everything in the-system directory
+# This overrides any other ignore patterns for files within the-system/
+!the-system/
+!the-system/**

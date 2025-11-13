@@ -27,6 +27,9 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent.parent
 os.chdir(project_root)
 
+# Path to bundled uv.exe
+UV_EXE = str(project_root / 'the-system' / 'bin' / 'uv.exe')
+
 # Import the agentic coder wrapper (already in same Python environment)
 sys.path.insert(0, str(script_dir))
 from prompt_agentic_coder import get_ai_response_text
@@ -208,7 +211,7 @@ def run_fix_unique_ids():
     print("PRE-CHECK: FIXING DUPLICATE REQ IDs")
     print("=" * 60 + "\n")
 
-    cmd = ['uv', 'run', '--script', './the-system/scripts/fix-unique-req-ids.py']
+    cmd = [UV_EXE, 'run', '--script', './the-system/scripts/fix-unique-req-ids.py']
     print(f"→ Running command: {' '.join(cmd)}")
 
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
@@ -254,7 +257,7 @@ def run_cleanup():
     print("CLEANUP: REMOVING OLD REPORTS AND TMP")
     print("=" * 60 + "\n")
 
-    cmd = ['uv', 'run', '--script', './the-system/scripts/cleanup.py']
+    cmd = [UV_EXE, 'run', '--script', './the-system/scripts/cleanup.py']
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', timeout=60)
 
     print(result.stdout)

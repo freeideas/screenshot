@@ -18,13 +18,3 @@ screenshot.exe must accept an output file path as the final command-line argumen
 **Source:** ./README.md (Section: "Arguments")
 
 screenshot.exe must capture a screenshot of the window uniquely identified by the specified window ID.
-
-## $REQ_CAPTURE_ID_004: Save as PNG File
-**Source:** ./README.md (Section: "Technical Details")
-
-screenshot.exe must save the captured screenshot in PNG format to the specified output path.
-
-## $REQ_CAPTURE_ID_005: Include Window Decorations
-**Source:** ./README.md (Section: "Technical Details")
-
-The captured screenshot must include the full window including title bar and decorations.

@@ -6,12 +6,11 @@ Transform README documentation into working, tested software through two AI-driv
 
 ## Prerequisites
 
-1. **Install `uv`** (Python script runner)
-   - `winget install --id=astral-sh.uv -e` or `pip install uv` or `brew install uv`
+**Configure your AI agent:**
+- Edit `./the-system/scripts/prompt_agentic_coder.py`
+- Set the command for your AI agent (Claude Code, Aider, etc.)
 
-2. **Configure your AI agent**
-   - Edit `./the-system/scripts/prompt_agentic_coder.py`
-   - Set the command for your AI agent (Claude Code, Aider, etc.)
+**Note:** No Python installation needed! The `.exe` files in `./the-system/` bundle everything required.
 
 ---
 
@@ -34,7 +33,8 @@ Create use-case oriented documentation:
 ### Step 2: Generate Flows
 
 ```bash
-uv run --script ./the-system/scripts/reqs-gen.py
+./the-system/reqs-gen.exe
+# Or: uv run --script ./the-system/scripts/reqs-gen.py
 ```
 
 The AI reads your documentation and generates testable requirement flows in `./reqs/`.
@@ -61,7 +61,8 @@ The AI reads your documentation and generates testable requirement flows in `./r
 ### Step 4: Build Software
 
 ```bash
-uv run --script ./the-system/scripts/software-construction.py
+./the-system/software-construction.exe
+# Or: uv run --script ./the-system/scripts/software-construction.py
 ```
 
 The AI automatically:
@@ -98,8 +99,8 @@ Any change to README documentation requires re-running `reqs-gen.py`.
 If you find bugs after construction completes:
 1. Write `./reports/BUG_REPORT.md` describing the issue
 2. Update `./readme/` to clarify expected behavior
-3. Re-run `reqs-gen.py` to regenerate flows
-4. Re-run `software-construction.py` to fix the bug
+3. Re-run `reqs-gen.exe` to regenerate flows
+4. Re-run `software-construction.exe` to fix the bug
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Ensure all tests in `./tests/failing/` directory comply with the testing strategies and specifications documented in `./README.md` and `./readme/` directory.
+Ensure all tests in `./tests/failing/` and `./tests/passing/` directory comply with the testing strategies and specifications documented in `./README.md` and `./readme/` directory.
 
 ## Instructions
 

@@ -32,6 +32,11 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
+# Path to bundled uv.exe
+script_path = Path(__file__).resolve()
+project_root = script_path.parent.parent.parent
+UV_EXE = str(project_root / 'the-system' / 'bin' / 'uv.exe')
+
 # Items to PROTECT (never move these)
 PROTECTED_ITEMS = {
     'README.md',
@@ -53,7 +58,7 @@ def run_cleanup():
     if cleanup_script.exists():
         print("🧹 Running cleanup.py first...")
         try:
-            subprocess.run(['uv', 'run', '--script', str(cleanup_script)], check=True)
+            subprocess.run([UV_EXE, 'run', '--script', str(cleanup_script)], check=True)
             print()
         except subprocess.CalledProcessError as e:
             print(f"⚠️  Warning: cleanup.py failed: {e}")

@@ -42,7 +42,7 @@ Create use-case oriented documentation:
 
 ### AI Generates Flows
 
-**Run:** `uv run --script ./the-system/scripts/reqs-gen.py`
+**Run:** `./the-system/reqs-gen.exe` (or `uv run --script ./the-system/scripts/reqs-gen.py`)
 
 The script:
 1. Reads all README documentation
@@ -120,7 +120,7 @@ Server must exit gracefully when receiving SIGTERM.
 
 ### AI Builds the Software
 
-**Run:** `uv run --script ./the-system/scripts/software-construction.py`
+**Run:** `./the-system/software-construction.exe` (or `uv run --script ./the-system/scripts/software-construction.py`)
 
 The script automates the build/test/fix cycle:
 
@@ -209,11 +209,12 @@ Code: ./code/server.cs:156, ./code/network.cs:89
 ---
 
 ## Directory Structure
+(Human needs to create only README.md and maybe some ./readme/ docs, and copy the-system directory to this project)
 
 ```
 ./readme/                       Use-case documentation (human writes)
 ./reqs/                         Testable flows (AI generates)
-./tests/
+./tests/                        (AI creates)
   build.py                      Build script (AI creates)
   failing/                      Tests not passing yet
   passing/                      Tests that pass
@@ -222,6 +223,10 @@ Code: ./code/server.cs:156, ./code/network.cs:89
 ./reports/                      AI activity reports (timestamped)
 ./tmp/                          Requirements database
 ./the-system/
+  reqs-gen.exe                  Portable launcher for reqs-gen.py
+  software-construction.exe     Portable launcher for software-construction.py
+  bin/
+    uv.exe                      Python package manager (bundled)
   scripts/
     reqs-gen.py                 Generate flows from READMEs
     software-construction.py    Build software from flows
@@ -230,15 +235,27 @@ Code: ./code/server.cs:156, ./code/network.cs:89
     reqtrace.py                 Trace requirements to tests/code
     build-req-index.py          Build traceability database
     fix-unique-req-ids.py       Auto-fix duplicate $REQ_IDs
+    cleanup.py                  Clean up reports and tmp files
+    nuke.py                     Delete everything except readmes and the-system
+    sync-the-system.py          Sync the-system across projects
+    sqlite2json.py              Convert SQLite to JSON
   prompts/
     WRITE_REQS.md               Flow generation instructions
-    req-fix_*.md                Validation and fix prompts
+    req-*.md                    Validation and fix prompts
     BUILD_SCRIPT.md             Build script creation
     WRITE_TEST.md               Test writing instructions
+    WRITE_BUILD_ARTIFACTS_TEST.md  Build artifacts test generation
     FIX_FAILING_TEST.md         Test failure fixing
     ORDER_TESTS.md              Test ordering by dependency
     REMOVE_ORPHAN_REQS.md       Orphan tag cleanup
+    CODE_REVIEW_FOR_REQUIREMENT.md  Code review prompts
+    CHECK_BUILD_ARTIFACTS.md    Build artifacts verification
+    TEST-STRATEGY-COMPLIANCE.md Test strategy validation
     PHILOSOPHY.md               Project philosophy
+    COPY_OLD_PROJECT.md         Copy from existing project
+    global_CLAUDE.md            Global Claude instructions
+    HOW_THIS_WORKS.md           Detailed system explanation
+    INSTRUCTIONS_for_HUMANS.md  Quick start guide
 ```
 
 ---

@@ -4,7 +4,7 @@
 # dependencies = []
 # ///
 
-DEFAULT_AGENT = "claude"
+DEFAULT_AGENT = "codex"
 
 """
 Wrapper for agentic coder - delegates to the configured agent CLI.
@@ -106,7 +106,7 @@ def get_ai_response_text(prompt_text: str, report_type: str = "prompt", timeout:
     # Build agent CLI command
     if agent == "codex":
         agent_cmd = [
-            "codex", "exec", "-",
+            "cdxcli.bat", "exec", "-",
             "--json",
             "--skip-git-repo-check",
             "--dangerously-bypass-approvals-and-sandbox"
@@ -168,6 +168,15 @@ def get_ai_response_text(prompt_text: str, report_type: str = "prompt", timeout:
 
         # Format report with prompt and response
         report_title = report_type.replace('_', ' ').title()
+
+        # Pretty-format the JSON output
+        try:
+            parsed_json = json.loads(raw_stdout)
+            pretty_json = json.dumps(parsed_json, indent=1)
+        except (json.JSONDecodeError, ValueError):
+            # If it's not valid JSON, just use the raw output
+            pretty_json = raw_stdout
+
         structured_report = f"""# {report_title}
 **Timestamp:** {report_timestamp}
 
@@ -182,6 +191,16 @@ def get_ai_response_text(prompt_text: str, report_type: str = "prompt", timeout:
 ## Response
 
 {ai_response}
+
+---
+
+## Raw JSON Output
+
+```json
+// FULL JSON FROM AI
+{pretty_json}
+// FULL JSON FROM AI END
+```
 """
 
         final_report_path.write_text(structured_report, encoding='utf-8')

@@ -39,8 +39,9 @@ README.md is missing:
 
 - Use uvrun shebang and script metadata
 - First delete any existing artifacts in `./release/` that the script will recreate, so failed builds never leave stale files behind
-- Compile/package code according to README.md
-- Put all build artifacts in `./release/`
+- Compile/package code according to README.md into the build system's default output directory (e.g., `./code/bin/Release/` for .NET, `./target/release/` for Rust, `./dist/` for Node.js, etc.)
+- Copy ONLY the necessary runtime files to `./release/` (executables, libraries, assets -- no .pdb debug symbols, .xml docs, or other development artifacts)
+- This keeps `./release/` clean with only what's needed to run the application
 - Exit 0 on success, non-zero on failure
 - Executable with: `uv run --script ./tests/build.py`
 

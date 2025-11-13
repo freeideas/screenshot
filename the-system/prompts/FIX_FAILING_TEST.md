@@ -61,15 +61,22 @@ Create/modify files in `./code/` to make test pass.
 - Refactor freely
 - Follow @the-system/prompts/PHILOSOPHY.md
 
-**Debugging hangs in failing tests:** If a test hangs without clear output, add extensive `print()` statements throughout the test to show exactly what it's doing. Print statements should describe:
+**Debugging hangs in failing tests:** If a test hangs without clear output, add extensive `print()` statements with `flush=True` throughout the test to show exactly what it's doing.
+
+**CRITICAL: Always use `flush=True` on all print statements:**
+```python
+print(f"Waiting for process {pid} to bind to port {port}, timeout in {timeout}s", flush=True)
+```
+
+Without `flush=True`, output is buffered and may not be captured when the test times out. This makes debugging impossible -- you won't see where the test hung. The test runner captures output in real-time, but only what's been flushed.
+
+Print statements should describe:
 - What step is starting and expected outcome
 - Key variable values, process IDs, port numbers
 - Before/after state checks
 - Timeout boundaries
 
-Example: `print(f"Waiting for process {pid} to bind to port {port}, timeout in {timeout}s")`
-
-This makes debugging unexplained hangs much easier when tests get stuck.
+See @the-system/prompts/WRITE_TEST.md for the standard test template with proper flush patterns.
 
 **Code organization guidance:**
 - **Consider creating focused files for each requirement or requirement group**

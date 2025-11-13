@@ -21,6 +21,9 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent.parent
 os.chdir(project_root)
 
+# Path to bundled uv.exe
+UV_EXE = str(project_root / 'the-system' / 'bin' / 'uv.exe')
+
 # Import the agentic coder wrapper
 sys.path.insert(0, str(script_dir))
 from prompt_agentic_coder import get_ai_response_text
@@ -31,7 +34,7 @@ def run_fix_unique_ids():
     print("PRE-CHECK: FIXING DUPLICATE REQ IDs")
     print("=" * 60 + "\n")
 
-    cmd = ['uv', 'run', '--script', './the-system/scripts/fix-unique-req-ids.py']
+    cmd = [UV_EXE, 'run', '--script', './the-system/scripts/fix-unique-req-ids.py']
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', timeout=60)
 
     print(result.stdout)
@@ -51,7 +54,7 @@ def run_build_req_index():
     print("BUILDING REQUIREMENTS INDEX")
     print("=" * 60 + "\n")
 
-    cmd = ['uv', 'run', '--script', './the-system/scripts/build-req-index.py']
+    cmd = [UV_EXE, 'run', '--script', './the-system/scripts/build-req-index.py']
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', timeout=60)
 
     print(result.stdout)
@@ -262,7 +265,7 @@ def handle_single_test_until_passes(test_file):
         # Run the test to check if it passes
         print(f"→ Running {test_name}...")
         # Use uv run --script to run test.py (same pattern that works in reqs-gen.py)
-        test_cmd = ['uv', 'run', '--script', './the-system/scripts/test.py', test_file]
+        test_cmd = [UV_EXE, 'run', '--script', './the-system/scripts/test.py', test_file]
         # Capture output to find the report file path
         test_result = None
         test_output = ""
@@ -346,7 +349,7 @@ def run_cleanup():
     print("CLEANUP: REMOVING OLD REPORTS AND TMP")
     print("=" * 60 + "\n")
 
-    cmd = ['uv', 'run', '--script', './the-system/scripts/cleanup.py']
+    cmd = [UV_EXE, 'run', '--script', './the-system/scripts/cleanup.py']
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', timeout=60)
 
     print(result.stdout)
@@ -417,11 +420,10 @@ def main():
         tests_were_written = True
 
     # Step 6: Ensure test strategy compliance
-    # Only run if there are tests in failing/ OR if failing/ is empty but passing/ is also empty
-    failing_test_count = len([f for f in os.listdir('./tests/failing') if (f.startswith('test_') or f.startswith('_test_')) and f.endswith('.py')]) if os.path.exists('./tests/failing') else 0
+    # Only run if there are NO tests in passing/ (i.e., all tests are new/untested)
     passing_test_count = len([f for f in os.listdir('./tests/passing') if (f.startswith('test_') or f.startswith('_test_')) and f.endswith('.py')]) if os.path.exists('./tests/passing') else 0
 
-    if failing_test_count > 0 or passing_test_count == 0:
+    if passing_test_count == 0:
         handle_test_strategy_compliance()
         run_build_req_index()  # Rebuild after any test modifications
 

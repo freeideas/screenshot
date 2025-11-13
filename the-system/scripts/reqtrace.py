@@ -24,7 +24,7 @@ def query_db(query, params=()):
     db_path = './tmp/reqs.sqlite'
     if not os.path.exists(db_path):
         print("ERROR: Requirements database not found at ./tmp/reqs.sqlite", file=sys.stderr)
-        print("Run: uv run --script ./the-system/scripts/build-req-index.py", file=sys.stderr)
+        print("Run: ./the-system/bin/uv.exe run --script ./the-system/scripts/build-req-index.py", file=sys.stderr)
         sys.exit(1)
 
     conn = sqlite3.connect(db_path)

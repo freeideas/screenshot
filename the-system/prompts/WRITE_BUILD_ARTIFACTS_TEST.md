@@ -33,6 +33,7 @@ The test should:
 - Use plain Python file operations (Path, os.listdir, etc.)
 - Have clear, readable assertions
 - Print helpful error messages when it fails
+- **Use `flush=True` on all print statements** (ensures output is visible if test hangs)
 
 **Test structure:**
 ```python
@@ -91,20 +92,20 @@ def main():
     # Check for missing files
     missing = expected_files - actual_files
     if missing:
-        print(f"ERROR: Missing files in ./release/:")
+        print(f"ERROR: Missing files in ./release/:", flush=True)
         for f in sorted(missing):
-            print(f"  - {f}")
+            print(f"  - {f}", flush=True)
         return 1
 
     # Check for unexpected files
     unexpected = actual_files - expected_files
     if unexpected:
-        print(f"ERROR: Unexpected files in ./release/:")
+        print(f"ERROR: Unexpected files in ./release/:", flush=True)
         for f in sorted(unexpected):
-            print(f"  - {f}")
+            print(f"  - {f}", flush=True)
         return 1
 
-    print("Build artifacts validation: PASS")
+    print("✓ Build artifacts validation: PASS", flush=True)
     return 0
 
 if __name__ == '__main__':

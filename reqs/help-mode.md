@@ -25,3 +25,13 @@ Format: `<window-id>\t<pid>\t"window title"`
 **Source:** ./README.md (Section: "Help Mode")
 
 Fields in the window list must be separated by tab characters (`\t`).
+
+## $REQ_HELP_005: Display Window List Header
+**Source:** ./README.md (Section: "Help Mode")
+
+The window list output must include a header followed by the list of windows.
+
+## $REQ_HELP_006: Require Exactly One Selection Flag
+**Source:** ./README.md (Section: "Arguments")
+
+screenshot.exe must require exactly one selection flag (--title, --pid, or --id) to be specified when not running in help mode.
