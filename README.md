@@ -18,6 +18,9 @@ screenshot.exe --pid 1234 output.png
 # Capture by window ID
 screenshot.exe --id A32F output.png
 
+# Capture to a directory with auto-generated timestamped filename
+screenshot.exe --title "window title" ./screenshots/
+
 # Run without arguments to see list of windows with IDs and PIDs
 screenshot.exe
 ```
@@ -29,7 +32,7 @@ The tool requires exactly one selection flag followed by its value, and an outpu
 - `--title <title>` -- Capture a window by its title. If multiple windows share the same title, one will be captured (which one is unspecified).
 - `--pid <process-id>` -- Capture the main window of a process by its numeric process ID. If the process has multiple windows, the main window will be captured.
 - `--id <window-id>` -- Capture a window by its alphanumeric window ID. Window IDs uniquely identify a specific window.
-- `<output-path>` (required) -- The file path where the PNG screenshot will be saved.
+- `<output-path>` (required) -- The file path where the PNG screenshot will be saved. If the path is a directory, a timestamped filename will be automatically generated in the format `YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png` (e.g., `2025-11-10-23-30-22-293532_screenshot.png`).
 
 ### Help Mode
 
@@ -63,6 +66,10 @@ screenshot.exe --pid 8124 ./output.png
 
 # Capture a window by its unique ID
 screenshot.exe --id A32F ./output.png
+
+# Capture to a directory with auto-generated timestamped filename
+screenshot.exe --title "Untitled - Notepad" ./screenshots/
+# Creates: ./screenshots/2025-11-10-23-30-22-293532_screenshot.png
 ```
 
 ## Technical Details

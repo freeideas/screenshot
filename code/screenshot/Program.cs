@@ -45,6 +45,15 @@ internal static class Program
         string value = args[1];
         string output = args[2];
 
+        // If output is a directory, generate a timestamped filename
+        if (System.IO.Directory.Exists(output))
+        {
+            var now = DateTime.Now;
+            string timestamp = $"{now:yyyy-MM-dd-HH-mm-ss}-{now:ffffff}";
+            string filename = $"{timestamp}_screenshot.png";
+            output = System.IO.Path.Combine(output, filename);
+        }
+
         IntPtr? hwnd = flag switch
         {
             "--title" => FindByTitle(value),
