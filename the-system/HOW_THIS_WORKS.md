@@ -1,12 +1,13 @@
 # How This Works
 
-Transform use-case README documents into working, tested software through two AI-driven phases.
+Transform use-case README documents into working, fully unit-tested software through two AI-driven phases.
 
 This is nothing like vibe-coding. It is:
-- TEST DRIVEN (i.e. "TDD")
-- SPEC DRIVEN (i.e. every important quality of the software is specified)
+- TEST DRIVEN (aka. "TDD")
+- SPEC DRIVEN (i.e. every important quality of the software is fully specified)
 - REPEATABLE (i.e. the same README documents will result in approximately the same software every time)
-- RELIABLE (i.e. if the README documents are good, the software will work)
+- RELIABLE (i.e. if the README documents are good quality, the software will work)
+- MAINTAINABLE (i.e. the same process can fix bugs, add features, or redesign the ai-written code)
 
 ---
 
