@@ -5,98 +5,118 @@
 # ///
 
 import sys
-import re
-import subprocess
-
 # Fix Windows console encoding
 if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
+import subprocess
+import re
+
+def main():
+    """Test help mode flow -- verify all help text and window list requirements."""
+
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+        print("Starting help mode test...", flush=True)
 
+        # Run screenshot.exe without arguments
+        print("Running screenshot.exe without arguments...", flush=True)
+        result = subprocess.run(
+            ['./release/screenshot.exe'],
+            capture_output=True,
+            timeout=10
+        )
+        print(f"Screenshot.exe exited with code {result.returncode}", flush=True)
 
-def run(cmd: list[str], check: bool = False, capture: bool = True) -> subprocess.CompletedProcess:
-    print(f"RUN: {' '.join(cmd)}", flush=True)
-    return subprocess.run(
-        cmd,
-        check=check,
-        capture_output=capture,
-        text=True,
-        encoding='utf-8',
-        errors='replace'
-    )
+        # Decode output - try UTF-8, fall back to cp1252 (Windows default)
+        try:
+            output = result.stdout.decode('utf-8')
+        except UnicodeDecodeError:
+            output = result.stdout.decode('cp1252', errors='replace')
 
+        print(f"Output length: {len(output)} characters", flush=True)
+        print("=" * 60, flush=True)
+        print(output, flush=True)
+        print("=" * 60, flush=True)
 
-def parse_window_list(output: str):
-    """Parse window list lines of form: <id>\t<pid>\t"title"""
-    lines = []
-    for raw in output.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        # Skip header/usage lines
-        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows (id,pid,title):"):
-            continue
-        parts = line.split('\t')
-        if len(parts) != 3:
-            continue
-        win_id, pid_str, title_quoted = parts
-        if not (len(title_quoted) >= 2 and title_quoted[0] == '"' and title_quoted[-1] == '"'):
-            continue
-        title = title_quoted[1:-1]
-        lines.append((win_id, pid_str, title))
-    return lines
+        # $REQ_HELP_008: Exit Success
+        assert result.returncode == 0, f"Help mode should exit with code 0, got {result.returncode}"  # $REQ_HELP_008
+        print("✓ Exit code is 0", flush=True)
 
+        # $REQ_HELP_001: Display Usage Examples
+        # Must show three capture modes: by title, by PID, and by window ID
+        print("Checking for usage examples...", flush=True)
+        assert '--title' in output, "Missing --title usage example"  # $REQ_HELP_001
+        assert '--pid' in output, "Missing --pid usage example"  # $REQ_HELP_001
+        assert '--id' in output, "Missing --id usage example"  # $REQ_HELP_001
+        print("✓ All three capture modes shown (--title, --pid, --id)", flush=True)
 
-def main() -> int:
-    print("Starting help-mode flow test...", flush=True)
+        # $REQ_HELP_002: Display Output Path Instructions
+        # Must explain: explicit .png file paths, directory paths with auto-generated timestamped filenames,
+        # and omitted paths defaulting to current directory
+        print("Checking for output path instructions...", flush=True)
+        output_lower = output.lower()
+        assert 'output' in output_lower, "Missing output path instructions"  # $REQ_HELP_002
+        assert 'directory' in output_lower or 'timestamped' in output_lower, "Missing directory/timestamped filename explanation"  # $REQ_HELP_002
+        print("✓ Output path instructions present", flush=True)
 
-    # Step: Run without arguments to trigger help mode
-    print("Invoking ./release/screenshot.exe with no arguments...", flush=True)
-    proc = run(['./release/screenshot.exe'], check=False, capture=True)
+        # $REQ_HELP_003: Display Window List Header
+        # Must show: "Currently open windows (id,pid,title):"
+        print("Checking for window list header...", flush=True)
+        assert 'Currently open windows' in output, "Missing window list header"  # $REQ_HELP_003
+        assert 'id' in output and 'pid' in output and 'title' in output, "Window list header missing field labels"  # $REQ_HELP_003
+        print("✓ Window list header present", flush=True)
 
-    # Expect successful exit when showing help
-    assert proc.returncode == 0, f"Help mode exited with non-zero code: {proc.returncode}"
+        # $REQ_HELP_004: List Open Windows
+        # Format: <window-id>\t<pid>\t"window title" with tab separators
+        print("Checking for window list entries...", flush=True)
+        lines = output.split('\n')
+        window_lines = []
+        for line in lines:
+            # Look for lines matching the window list format: alphanumeric\t<digits>\t"..."
+            if '\t' in line and '"' in line:
+                parts = line.split('\t')
+                if len(parts) >= 3:
+                    window_lines.append(line)
 
-    out = proc.stdout or ""
-    err = proc.stderr or ""
-    print("STDOUT (truncated):", out[:400].replace('\n', ' '), flush=True)
-    if err:
-        print("STDERR (truncated):", err[:200].replace('\n', ' '), flush=True)
+        assert len(window_lines) > 0, "No window list entries found"  # $REQ_HELP_004
+        print(f"✓ Found {len(window_lines)} window list entries", flush=True)
 
-    # Requirement: When run without arguments, it must print usage information.
-    assert "Usage:" in out, "Expected usage information in help output"  # $REQ_HELP_001
+        # Verify at least one window entry has proper format
+        sample_window = window_lines[0]
+        print(f"Sample window entry: {sample_window}", flush=True)
+        parts = sample_window.split('\t')
 
-    # Requirement: Must include a header for the window list
-    assert "Currently open windows (id,pid,title):" in out, "Expected window list header in help output"  # $REQ_HELP_005
+        # $REQ_HELP_005: Window ID Format
+        # Window IDs are alphanumeric hexadecimal values without 0x prefix
+        window_id = parts[0].strip()
+        assert re.match(r'^[0-9A-Fa-f]+$', window_id), f"Window ID '{window_id}' is not alphanumeric hexadecimal"  # $REQ_HELP_005
+        print(f"✓ Window ID format valid: {window_id}", flush=True)
 
-    # Requirement: When run without arguments, it must print a list of all currently open windows.
-    windows = parse_window_list(out)
-    assert len(windows) > 0, "Expected at least one window listed in help output"  # $REQ_HELP_002
+        # $REQ_HELP_006: Process ID Format
+        # Process IDs are numeric values
+        pid = parts[1].strip()
+        assert re.match(r'^\d+$', pid), f"PID '{pid}' is not numeric"  # $REQ_HELP_006
+        print(f"✓ Process ID format valid: {pid}", flush=True)
 
-    # Take the first parsed line and validate format and separators
-    win_id, pid_str, title = windows[0]
+        # $REQ_HELP_007: Window Title Quoting
+        # Window titles are displayed with double quotes
+        title_part = '\t'.join(parts[2:])  # Join remaining parts in case title contains tabs
+        assert '"' in title_part, "Window title not enclosed in double quotes"  # $REQ_HELP_007
+        print(f"✓ Window title has double quotes: {title_part[:50]}...", flush=True)
 
-    # Requirement: Line format contains ID, PID, and quoted title
-    assert re.fullmatch(r"[A-Za-z0-9]+", win_id) is not None, "Window ID must be alphanumeric"  # $REQ_HELP_003
-    assert pid_str.isdigit(), "Process ID must be numeric"  # $REQ_HELP_003
-    # We parsed quotes off the title; ensure original line had exactly two tabs
-    original_line = f"{win_id}\t{pid_str}\t\"{title}\""
-    assert original_line.count('\t') == 2, "Fields must be tab-separated"  # $REQ_HELP_004
+        print("✓ All tests passed", flush=True)
+        return 0
 
-    # Requirement: Exactly one selection flag required when not in help mode
-    # Invoke with only an output path (no selection flag) to force an error
-    print("Invoking with only output path (expect usage error)...", flush=True)
-    bad_proc = run(['./release/screenshot.exe', './tmp/should-not-exist.png'], check=False, capture=True)
-    bad_out = (bad_proc.stdout or "") + "\n" + (bad_proc.stderr or "")
-    assert bad_proc.returncode != 0, "Expected non-zero exit when selection flag is missing"  # $REQ_HELP_006
-    assert "Usage:" in bad_out, "Expected usage shown when selection flag is missing"  # $REQ_HELP_006
-
-    print("✓ All tests passed for help-mode flow")
-    return 0
-
+    except AssertionError as e:
+        print(f"✗ Test failed: {e}", flush=True)
+        return 1
+    except subprocess.TimeoutExpired:
+        print("✗ Test failed: screenshot.exe timed out", flush=True)
+        return 1
+    except Exception as e:
+        print(f"✗ Test failed with exception: {e}", flush=True)
+        return 1
 
 if __name__ == '__main__':
     sys.exit(main())

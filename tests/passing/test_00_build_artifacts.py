@@ -24,77 +24,64 @@ To regenerate this test (if documentation changes):
 """
 
 import sys
-
 # Fix Windows console encoding for Unicode characters
 if sys.stdout.encoding != 'utf-8':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except Exception:
-        # On older Pythons, reconfigure may not exist; ignore.
-        pass
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
 
+import os
 from pathlib import Path
 
-
-def list_release_files(release_dir: Path) -> set[str]:
-    files: set[str] = set()
-    if release_dir.exists():
-        for item in release_dir.iterdir():
-            if item.is_file():
-                files.add(item.name)
-    return files
-
-
-def main() -> int:
+def main():
     release_dir = Path('./release')
 
     # List what's actually in ./release/
-    actual_files = list_release_files(release_dir)
+    actual_files = set()
+    if release_dir.exists():
+        for item in release_dir.iterdir():
+            if item.is_file():
+                actual_files.add(item.name)
 
-    # Expected files based on documentation (README.md, readme/)
-    # The app is a single, standalone AOT-compiled CLI tool with
-    # no runtime dependencies. Therefore, we expect only the
-    # executable to be shipped in ./release/.
+    # Define expected files based on documentation
+    # From README.md: "AOT compiled with no runtime dependencies required"
+    # From tests/build.py line 54-63: Only screenshot.exe is copied to ./release/
+    # From tests/build.py line 55: "AOT compilation produces a single .exe with no runtime dependencies"
     expected_files = {
         'screenshot.exe',
     }
 
-    errors: list[str] = []
-
+    # Check for missing files
     missing = expected_files - actual_files
     if missing:
-        errors.append("Missing files in ./release/:")
+        print(f"ERROR: Missing files in ./release/:", flush=True)
         for f in sorted(missing):
-            errors.append(f"  - {f}")
-
-    unexpected = actual_files - expected_files
-    if unexpected:
-        errors.append("Unexpected files in ./release/:")
-        for f in sorted(unexpected):
-            errors.append(f"  - {f}")
-
-    if errors:
-        print("ERROR: Build artifacts do not match documentation.")
-        print()
-        print("Documentation (source of truth): ./README.md and ./readme/")
-        print("Expected files in ./release/:")
-        for f in sorted(expected_files):
-            print(f"  - {f}")
-        print()
-        print("Actual files found in ./release/:")
-        for f in sorted(actual_files):
-            print(f"  - {f}")
-        print()
-        print("Details:")
-        for line in errors:
-            print(line)
+            print(f"  - {f}", flush=True)
+        print("", flush=True)
+        print("Expected files based on documentation:", flush=True)
+        print("  - README.md states: 'AOT compiled with no runtime dependencies required'", flush=True)
+        print("  - tests/build.py copies only screenshot.exe to ./release/", flush=True)
+        print("", flush=True)
+        print("The build should produce a single standalone executable.", flush=True)
         return 1
 
-    print("Build artifacts validation: PASS")
-    return 0
+    # Check for unexpected files
+    unexpected = actual_files - expected_files
+    if unexpected:
+        print(f"ERROR: Unexpected files in ./release/:", flush=True)
+        for f in sorted(unexpected):
+            print(f"  - {f}", flush=True)
+        print("", flush=True)
+        print("Expected files based on documentation:", flush=True)
+        print("  - README.md states: 'AOT compiled with no runtime dependencies required'", flush=True)
+        print("  - tests/build.py copies only screenshot.exe to ./release/", flush=True)
+        print("", flush=True)
+        print("The release/ directory should contain ONLY screenshot.exe.", flush=True)
+        print("No runtime dependencies, DLLs, or other files should be present.", flush=True)
+        return 1
 
+    print("✓ Build artifacts validation: PASS", flush=True)
+    print(f"  Found: {', '.join(sorted(actual_files))}", flush=True)
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())
-

@@ -1,37 +1,45 @@
 # Help Mode Flow
 
-**Source:** ./README.md
+**Source:** ./README.md (Section: "Help Mode"), ./readme/HELP_TEXT.md
 
-Run screenshot.exe without arguments to display usage information and list of currently open windows.
+Run without arguments to display usage information and window list.
 
-## $REQ_HELP_001: Display Usage on No Arguments
-**Source:** ./README.md (Section: "Help Mode")
+## $REQ_HELP_001: Display Usage Examples
+**Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-When screenshot.exe is run without arguments, it must print usage information.
+When run without arguments, display usage examples showing the three capture modes: by title, by PID, and by window ID.
 
-## $REQ_HELP_002: List Currently Open Windows
-**Source:** ./README.md (Section: "Help Mode")
+## $REQ_HELP_002: Display Output Path Instructions
+**Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-When screenshot.exe is run without arguments, it must print a list of all currently open windows.
+When run without arguments, display instruction text explaining output path behavior: explicit .png file paths, directory paths with auto-generated timestamped filenames, and omitted paths defaulting to current directory.
 
-## $REQ_HELP_003: Window List Format with PID
-**Source:** ./README.md (Section: "Help Mode")
+## $REQ_HELP_003: Display Window List Header
+**Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-Each line in the window list must show an alphanumeric window ID, followed by a tab character, followed by the numeric process ID, followed by a tab character, followed by the quoted window title.
+When run without arguments, display header text "Currently open windows (id,pid,title):" before the window list.
 
-Format: `<window-id>\t<pid>\t"window title"`
+## $REQ_HELP_004: List Open Windows
+**Source:** ./readme/HELP_TEXT.md (Section: "Field Descriptions")
 
-## $REQ_HELP_004: Tab-Separated Fields
-**Source:** ./README.md (Section: "Help Mode")
+When run without arguments, display one line per currently open window with format: `<window-id>\t<pid>\t"window title"` where fields are separated by tab characters.
 
-Fields in the window list must be separated by tab characters (`\t`).
+## $REQ_HELP_005: Window ID Format
+**Source:** ./readme/HELP_TEXT.md (Section: "Window ID Format")
 
-## $REQ_HELP_005: Display Window List Header
-**Source:** ./README.md (Section: "Help Mode")
+Window IDs are alphanumeric hexadecimal values without 0x prefix.
 
-The window list output must include a header followed by the list of windows.
+## $REQ_HELP_006: Process ID Format
+**Source:** ./readme/HELP_TEXT.md (Section: "Process IDs")
 
-## $REQ_HELP_006: Require Exactly One Selection Flag
-**Source:** ./README.md (Section: "Arguments")
+Process IDs are numeric values that may be shared by multiple windows from the same application.
 
-screenshot.exe must require exactly one selection flag (--title, --pid, or --id) to be specified when not running in help mode.
+## $REQ_HELP_007: Window Title Quoting
+**Source:** ./readme/HELP_TEXT.md (Section: "Field Descriptions")
+
+Window titles are displayed with double quotes in the window list.
+
+## $REQ_HELP_008: Exit Success
+**Source:** ./readme/HELP_TEXT.md (Section: "Exit Code")
+
+Help mode exits with status code 0.

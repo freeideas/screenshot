@@ -9,17 +9,20 @@ A simple command-line standalone AOT-compiled C# application that captures scree
 ## Usage
 
 ```bash
-# Capture by window title
+# Capture by window title to specific file
 screenshot.exe --title "window title" output.png
 
-# Capture by process ID
+# Capture by process ID to specific file
 screenshot.exe --pid 1234 output.png
 
-# Capture by window ID
+# Capture by window ID to specific file
 screenshot.exe --id A32F output.png
 
 # Capture to a directory with auto-generated timestamped filename
 screenshot.exe --title "window title" ./screenshots/
+
+# Capture to current directory with auto-generated timestamped filename
+screenshot.exe --title "window title"
 
 # Run without arguments to see list of windows with IDs and PIDs
 screenshot.exe
@@ -27,49 +30,53 @@ screenshot.exe
 
 ### Arguments
 
-The tool requires exactly one selection flag followed by its value, and an output path:
+The tool requires exactly one selection flag followed by its value:
 
-- `--title <title>` -- Capture a window by its title. If multiple windows share the same title, one will be captured (which one is unspecified).
-- `--pid <process-id>` -- Capture the main window of a process by its numeric process ID. If the process has multiple windows, the main window will be captured.
+- `--title <title>` -- Capture a window by its title. If multiple windows share the same title, one will be captured (unspecified which).
+- `--pid <process-id>` -- Capture a window of a process by its numeric process ID. If the process has multiple windows, one will be captured (unspecified which).
 - `--id <window-id>` -- Capture a window by its alphanumeric window ID. Window IDs uniquely identify a specific window.
-- `<output-path>` (required) -- The file path where the PNG screenshot will be saved. If the path is a directory, a timestamped filename will be automatically generated in the format `YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png` (e.g., `2025-11-10-23-30-22-293532_screenshot.png`).
+- `<output-path>` (optional) -- The file path or directory where the PNG screenshot will be saved:
+  - If a `.png` file path is specified, the screenshot is saved to that exact location
+  - If a directory is specified, a timestamped filename is automatically generated in the format `YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png` (e.g., `2025-11-10-23-30-22-293532_screenshot.png`)
+  - If omitted, the screenshot is saved to the current directory with an auto-generated timestamped filename
+
+When a screenshot is successfully captured, the tool outputs `Wrote [filepath]` before exiting.
 
 ### Help Mode
 
-If `screenshot.exe` is run without arguments, it will print usage information followed by a list of all currently open windows. Each line in the window list shows:
+Run without arguments to see usage information and a list of all currently open windows:
 
-Format: `<window-id>\t<pid>\t"window title"`
+```bash
+screenshot.exe
+```
 
-Where:
-- `<window-id>` is an alphanumeric identifier for the window
-- `<pid>` is the numeric process ID
-- `"window title"` is the window title in quotes
-- Fields are separated by tab characters (`\t`)
+See `readme\HELP_TEXT.md` for detailed help mode documentation.
 
 ### Example
 
 ```bash
 # Run without arguments to see available windows
 screenshot.exe
-# Output shows:
-# Currently open windows (id,pid,title):
-#
-#   A32F	5432	"Untitled - Notepad"
-#   9939x4Q9	8124	"Google Chrome"
-#   123	4567	"Visual Studio Code"
 
-# Capture a Notepad window by title
+# Capture a Notepad window by title to specific file
 screenshot.exe --title "Untitled - Notepad" ./screenshots/notepad.png
+# Output: Wrote ./screenshots/notepad.png
 
-# Capture a browser window by process ID
+# Capture a browser window by process ID to specific file
 screenshot.exe --pid 8124 ./output.png
+# Output: Wrote ./output.png
 
-# Capture a window by its unique ID
+# Capture a window by its unique ID to specific file
 screenshot.exe --id A32F ./output.png
+# Output: Wrote ./output.png
 
 # Capture to a directory with auto-generated timestamped filename
 screenshot.exe --title "Untitled - Notepad" ./screenshots/
-# Creates: ./screenshots/2025-11-10-23-30-22-293532_screenshot.png
+# Output: Wrote ./screenshots/2025-11-10-23-30-22-293532_screenshot.png
+
+# Capture to current directory with auto-generated timestamped filename
+screenshot.exe --title "Untitled - Notepad"
+# Output: Wrote ./2025-11-10-23-30-22-293532_screenshot.png
 ```
 
 ## Technical Details
@@ -80,11 +87,11 @@ screenshot.exe --title "Untitled - Notepad" ./screenshots/
 
 ## Testing
 
-This project uses AI-based visual verification to test screenshot accuracy. The testing approach:
+This project uses AI-based visual verification to test screenshot accuracy. Tests launch controlled `cmd.exe` windows, capture them using all three methods (by ID, title, and PID), and verify:
 
-1. Randomly selects a window from the list returned by `screenshot.exe`
-2. Captures a screenshot with a timestamped filename (e.g., `2025-11-10-14-54-02-779216_notepad.png`)
-3. Uses `the-system\scripts\prompt_agentic_coder.py` to ask an AI whether the .png file plausibly looks like a screenshot of its window title
+1. Screenshots are created with correct timestamped filenames
+2. AI confirms screenshots plausibly match window titles
+3. Each capture method works correctly
 
 See `readme\TESTING.md` for detailed testing documentation.
 

@@ -5,175 +5,225 @@
 # ///
 
 import sys
-import re
+# Fix Windows console encoding
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
 import subprocess
+import time
+import re
+import os
 from pathlib import Path
 from datetime import datetime
 
-# Fix Windows console encoding
-if sys.stdout.encoding != 'utf-8':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+def main():
+    """Test capture by window title flow."""
 
-
-def run(cmd: list[str], check: bool = False, capture: bool = True) -> subprocess.CompletedProcess:
-    print(f"RUN: {' '.join(cmd)}", flush=True)
-    return subprocess.run(
-        cmd,
-        check=check,
-        capture_output=capture,
-        text=True,
-        encoding='utf-8',
-        errors='replace'
-    )
-
-
-def parse_window_list(output: str):
-    """Parse window list lines of form: <id>\t<pid>\t"title"""
-    lines = []
-    for raw in output.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        # Skip header lines
-        if line.startswith("Usage:") or line.startswith("Run without arguments") or line.startswith("Currently open windows (id,pid,title):"):
-            continue
-        parts = line.split('\t')
-        if len(parts) != 3:
-            continue
-        win_id, pid_str, title_quoted = parts
-        if not (len(title_quoted) >= 2 and title_quoted[0] == '"' and title_quoted[-1] == '"'):
-            continue
-        title = title_quoted[1:-1]
-        lines.append((win_id, pid_str, title))
-    return lines
-
-
-def main() -> int:
-    print("Starting capture-by-title flow test...", flush=True)
-
-    # Step 1: Launch a cmd.exe window for controlled testing with a custom title
-    print("Launching cmd.exe for controlled testing...", flush=True)
-    cmd_process = subprocess.Popen(
-        ['cmd.exe', '/K', 'title ScreenshotTestWindow'],
-        creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
-    )
-    cmd_pid = cmd_process.pid
-    print(f"Launched cmd.exe with PID: {cmd_pid}", flush=True)
-
-    # Give the window time to appear
-    import time
-    time.sleep(2)
+    cmd_process = None
 
     try:
-        # Step 2: Get list of windows (help mode)
-        print("Listing windows via ./release/screenshot.exe (help mode)...", flush=True)
-        list_proc = run(['./release/screenshot.exe'], check=False, capture=True)
-        if list_proc.returncode != 0:
-            print(f"✗ Failed to list windows (exit {list_proc.returncode})")
-            print(list_proc.stderr)
-            return 1
+        print("Starting capture by title test...", flush=True)
 
-        windows = parse_window_list(list_proc.stdout)
-        assert len(windows) > 0, "No windows found to capture; ensure at least one visible window is open"  # $REQ_CAPTURE_TITLE_003
+        # Ensure tmp directory exists
+        os.makedirs('./tmp', exist_ok=True)
+        print("Created ./tmp directory", flush=True)
 
-        # Find the Command Prompt window by matching the PID we just launched
-        cmd_window = None
-        for win_id, pid_str, title in windows:
-            if int(pid_str) == cmd_pid:
-                cmd_window = (win_id, pid_str, title)
-                break
-
-        assert cmd_window is not None, f"Could not find window with PID {cmd_pid} in window list"
-        win_id, pid_str, title = cmd_window
-        print(f"Selected window: id={win_id} pid={pid_str} title=\"{title}\"", flush=True)
-
-        # Step 3: Capture by --title to an output path
+        # Generate timestamp for unique filename
         timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
-        out_dir = Path('./tmp')
-        out_dir.mkdir(parents=True, exist_ok=True)
-        sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", title).strip('-') or 'window'
-        out_title = out_dir / f"{timestamp}_{sanitized}_by-title.png"
+        print(f"Generated timestamp: {timestamp}", flush=True)
 
-        print(f"Capturing by title to {out_title}...", flush=True)
-        cap_title = run(['./release/screenshot.exe', '--title', title, str(out_title)], check=False, capture=True)
-        assert cap_title.returncode == 0, f"Capture by --title failed (exit {cap_title.returncode}): {cap_title.stderr.strip()}"  # $REQ_CAPTURE_TITLE_001
-
-        # Step 4: Verify output path handling and file creation
-        assert out_title.exists(), f"Output file was not created at {out_title}"  # $REQ_CAPTURE_TITLE_002
-        assert out_title.is_file(), f"Output path is not a file: {out_title}"  # $REQ_CAPTURE_TITLE_002
-        assert out_title.stat().st_size > 0, f"Output file is empty: {out_title}"  # $REQ_CAPTURE_TITLE_002
-
-        # Step 5: Visual plausibility check (AI-based) for capture correctness by title
-        prompt_match = (
-            f"Does the image at {out_title} plausibly look like a screenshot of a command prompt/terminal window with title 'ScreenshotTestWindow'? "
-            f"Answer with YES or NO and a brief explanation."
+        # Launch controlled cmd.exe window with unique title
+        unique_title = f"TestCaptureTitle_{timestamp}"
+        print(f"Launching controlled cmd.exe window with title '{unique_title}'...", flush=True)
+        cmd_process = subprocess.Popen(
+            ['cmd.exe', '/K', f'title {unique_title}'],
+            creationflags=subprocess.CREATE_NEW_CONSOLE
         )
-        print("Submitting AI verification prompt for plausibility...", flush=True)
-        ai_proc1 = subprocess.run(
-            ['uv', 'run', '--script', './the-system/scripts/prompt_agentic_coder.py'],
-            input=prompt_match,
+        cmd_pid = cmd_process.pid
+        print(f"Launched cmd.exe with PID {cmd_pid} and title '{unique_title}'", flush=True)
+
+        # Give window time to appear
+        print("Waiting 2 seconds for window to appear...", flush=True)
+        time.sleep(2)
+        print("Window should now be visible", flush=True)
+
+        # Test $REQ_TITLE_001: Accept --title <title> flag with string value
+        print(f"Testing $REQ_TITLE_001: Capturing by title '{unique_title}'...", flush=True)
+        output_path = f'./tmp/{timestamp}_capture-by-title.png'
+        result = subprocess.run(
+            ['./release/screenshot.exe', '--title', unique_title, output_path],
             capture_output=True,
             text=True,
-            encoding='utf-8',
-            errors='replace'
+            encoding='utf-8'
         )
-        ai_text1 = ai_proc1.stdout or ""
-        print("AI plausibility response (truncated):", ai_text1[:300].replace('\n', ' '), flush=True)
-        assert ai_proc1.returncode == 0, f"AI verification tool failed (exit {ai_proc1.returncode})"  # $REQ_CAPTURE_TITLE_003
-        assert re.search(r"\bYES\b", ai_text1, flags=re.IGNORECASE), "AI did not confirm screenshot plausibility (expected YES)"  # $REQ_CAPTURE_TITLE_003
+        print(f"Capture command completed with exit code {result.returncode}", flush=True)
 
-        # Step 6: Test duplicate title handling (REQ_CAPTURE_TITLE_004)
-        # Launch a second cmd.exe with the SAME title to test duplicate handling
-        print("Launching second cmd.exe with duplicate title for REQ_CAPTURE_TITLE_004...", flush=True)
+        # Verify the command accepted the --title flag with string value
+        assert result.returncode == 0, f"screenshot.exe failed with exit code {result.returncode}: {result.stderr}"  # $REQ_TITLE_001
+        print("✓ $REQ_TITLE_001: --title flag accepted with string value", flush=True)
+
+        # Test $REQ_TITLE_002: Capture window by title
+        # Verify file was created (proves a window was captured)
+        print(f"Checking if screenshot file exists at {output_path}...", flush=True)
+        assert Path(output_path).exists(), f"Screenshot file not created at {output_path}"  # $REQ_TITLE_002
+        print("✓ $REQ_TITLE_002: Screenshot captured by title", flush=True)
+
+        # Test $REQ_TITLE_004: Save to explicit file path
+        # Verify file was saved to the exact location we specified
+        assert Path(output_path).is_file(), "Screenshot is not a file"  # $REQ_TITLE_004
+        assert Path(output_path).stat().st_size > 0, "Screenshot file is empty"  # $REQ_TITLE_004
+        print("✓ $REQ_TITLE_004: Screenshot saved to explicit file path", flush=True)
+
+        # Test $REQ_TITLE_007: Output success message "Wrote [filepath]"
+        print(f"Checking output message...", flush=True)
+        print(f"stdout: {result.stdout}", flush=True)
+        expected_message = f"Wrote {output_path}"
+        assert expected_message in result.stdout, f"Expected '{expected_message}' in output, got: {result.stdout}"  # $REQ_TITLE_007
+        print("✓ $REQ_TITLE_007: Output 'Wrote [filepath]' message", flush=True)
+
+        # Test $REQ_TITLE_008: PNG format output
+        print("Checking PNG format...", flush=True)
+        with open(output_path, 'rb') as f:
+            png_signature = f.read(8)
+        expected_png_sig = b'\x89PNG\r\n\x1a\n'
+        assert png_signature == expected_png_sig, f"Invalid PNG signature: {png_signature.hex()}"  # $REQ_TITLE_008
+        print("✓ $REQ_TITLE_008: Screenshot is in PNG format", flush=True)
+
+        # Test $REQ_TITLE_009: Capture full window with title bar and decorations
+        # Use AI to verify window decorations are present
+        print("Verifying full window capture with AI...", flush=True)
+        ai_prompt = f"""I will provide a screenshot. Please examine it and tell me if it shows:
+1. A title bar at the top
+2. Window borders/decorations (edges around the window)
+3. Content inside the window (the actual window area, not just decorations)
+
+Does the screenshot show ALL THREE of these elements? Answer YES or NO.
+
+Screenshot: @{output_path}"""
+
+        ai_result = subprocess.run(
+            ['uv', 'run', '--script', './the-system/scripts/prompt_agentic_coder.py'],
+            input=ai_prompt,
+            capture_output=True,
+            text=True,
+            encoding='utf-8'
+        )
+        print(f"AI verification completed with exit code {ai_result.returncode}", flush=True)
+        print(f"AI output: {ai_result.stdout[:200]}...", flush=True)
+
+        # AI should return success and response should contain YES
+        assert ai_result.returncode == 0, f"AI verification failed with exit code {ai_result.returncode}"  # $REQ_TITLE_009
+        assert 'YES' in ai_result.stdout.upper(), f"AI did not confirm full window capture"  # $REQ_TITLE_009
+        print("✓ $REQ_TITLE_009: Full window including title bar and decorations captured", flush=True)
+
+        # Test $REQ_TITLE_005: Save to directory with timestamped filename
+        print("Testing directory output with auto-generated filename...", flush=True)
+        dir_result = subprocess.run(
+            ['./release/screenshot.exe', '--title', unique_title, './tmp/'],
+            capture_output=True,
+            text=True,
+            encoding='utf-8'
+        )
+        print(f"Directory capture completed with exit code {dir_result.returncode}", flush=True)
+        assert dir_result.returncode == 0, f"Directory capture failed: {dir_result.stderr}"  # $REQ_TITLE_005
+
+        # Extract the generated filename from the output message
+        match = re.search(r'Wrote (.*)', dir_result.stdout)
+        assert match, f"Could not find 'Wrote' message in output: {dir_result.stdout}"  # $REQ_TITLE_005
+        generated_path = match.group(1)
+        print(f"Generated path: {generated_path}", flush=True)
+
+        # Verify the filename matches the timestamped format
+        filename = Path(generated_path).name
+        print(f"Checking filename format: {filename}", flush=True)
+        timestamp_pattern = r'\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d+_screenshot\.png'
+        assert re.match(timestamp_pattern, filename), f"Filename doesn't match timestamp pattern: {filename}"  # $REQ_TITLE_005
+        assert Path(generated_path).exists(), f"Generated file not found: {generated_path}"  # $REQ_TITLE_005
+        print("✓ $REQ_TITLE_005: Screenshot saved to directory with timestamped filename", flush=True)
+
+        # Test $REQ_TITLE_006: Save to current directory with timestamped filename (omit output path)
+        print("Testing omitted output path (defaults to current directory)...", flush=True)
+        omit_result = subprocess.run(
+            ['./release/screenshot.exe', '--title', unique_title],
+            capture_output=True,
+            text=True,
+            encoding='utf-8'
+        )
+        print(f"Omitted path capture completed with exit code {omit_result.returncode}", flush=True)
+        assert omit_result.returncode == 0, f"Omitted path capture failed: {omit_result.stderr}"  # $REQ_TITLE_006
+
+        # Extract the generated filename
+        match = re.search(r'Wrote (.*)', omit_result.stdout)
+        assert match, f"Could not find 'Wrote' message in output: {omit_result.stdout}"  # $REQ_TITLE_006
+        omitted_path = match.group(1)
+        print(f"Omitted path result: {omitted_path}", flush=True)
+
+        # Verify filename format and file exists
+        omitted_filename = Path(omitted_path).name
+        print(f"Checking omitted filename format: {omitted_filename}", flush=True)
+        assert re.match(timestamp_pattern, omitted_filename), f"Filename doesn't match timestamp pattern: {omitted_filename}"  # $REQ_TITLE_006
+        assert Path(omitted_path).exists(), f"Generated file not found: {omitted_path}"  # $REQ_TITLE_006
+        print("✓ $REQ_TITLE_006: Screenshot saved to current directory with timestamped filename", flush=True)
+
+        # Clean up the omitted path file (it's in current directory, not ./tmp)
+        if Path(omitted_path).exists():
+            print(f"Cleaning up test file: {omitted_path}", flush=True)
+            Path(omitted_path).unlink()
+
+        # Test $REQ_TITLE_003: Handle multiple windows with same title
+        # Launch a second cmd.exe window with the same title
+        print("Testing multiple windows with same title...", flush=True)
         cmd_process2 = subprocess.Popen(
-            ['cmd.exe', '/K', 'title ScreenshotTestWindow'],
-            creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+            ['cmd.exe', '/K', f'title {unique_title}'],
+            creationflags=subprocess.CREATE_NEW_CONSOLE
         )
-        time.sleep(2)  # Give window time to appear
+        print(f"Launched second cmd.exe with PID {cmd_process2.pid} and same title", flush=True)
+        time.sleep(1)
 
-        try:
-            # Now there are TWO windows with title "ScreenshotTestWindow"
-            # Try to capture by title -- it should capture one of them successfully
-            out_duplicate = out_dir / f"{timestamp}_ScreenshotTestWindow_duplicate-title-test.png"
-            print(f"Capturing by duplicate title to {out_duplicate}...", flush=True)
-            cap_duplicate = run(['./release/screenshot.exe', '--title', 'ScreenshotTestWindow', str(out_duplicate)], check=False, capture=True)
-            assert cap_duplicate.returncode == 0, f"Capture by --title with duplicate titles failed (exit {cap_duplicate.returncode}): {cap_duplicate.stderr.strip()}"  # $REQ_CAPTURE_TITLE_004
-            assert out_duplicate.exists() and out_duplicate.stat().st_size > 0, "Duplicate-title capture did not produce a non-empty file"  # $REQ_CAPTURE_TITLE_004
-            print("✓ Duplicate title test passed (REQ_CAPTURE_TITLE_004)")
-        finally:
-            # Clean up second cmd.exe
+        # Capture by title -- should capture one of the two windows
+        multi_output = f'./tmp/{timestamp}_multi-title.png'
+        multi_result = subprocess.run(
+            ['./release/screenshot.exe', '--title', unique_title, multi_output],
+            capture_output=True,
+            text=True,
+            encoding='utf-8'
+        )
+        print(f"Multi-window capture completed with exit code {multi_result.returncode}", flush=True)
+
+        # Verify that one window was captured successfully (requirement says "one will be captured")
+        assert multi_result.returncode == 0, f"Multi-window capture failed: {multi_result.stderr}"  # $REQ_TITLE_003
+        assert Path(multi_output).exists(), f"Screenshot not created for multi-window scenario"  # $REQ_TITLE_003
+        assert Path(multi_output).stat().st_size > 0, "Screenshot file is empty"  # $REQ_TITLE_003
+        print("✓ $REQ_TITLE_003: One window captured when multiple windows share same title", flush=True)
+
+        # Clean up second process
+        if cmd_process2.poll() is None:
             print("Cleaning up second cmd.exe process...", flush=True)
-            try:
-                cmd_process2.terminate()
-                cmd_process2.wait(timeout=5)
-            except Exception as e:
-                print(f"Warning: Failed to cleanly terminate second cmd.exe: {e}", flush=True)
-                try:
-                    cmd_process2.kill()
-                except Exception:
-                    pass
+            cmd_process2.kill()
+            cmd_process2.wait(timeout=5)
 
-        print("✓ All tests passed for capture-by-title flow")
+        print("✓ All tests passed", flush=True)
         return 0
 
+    except AssertionError as e:
+        print(f"✗ Test failed: {e}", flush=True)
+        return 1
+    except Exception as e:
+        print(f"✗ Unexpected error: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return 1
     finally:
-        # Cleanup: Kill the cmd.exe process
-        print("Cleaning up cmd.exe process...", flush=True)
-        try:
-            cmd_process.terminate()
-            cmd_process.wait(timeout=5)
-        except Exception as e:
-            print(f"Warning: Failed to cleanly terminate cmd.exe: {e}", flush=True)
+        # CRITICAL: Clean up -- kill cmd.exe process(es)
+        if cmd_process is not None and cmd_process.poll() is None:
+            print("Cleaning up cmd.exe process...", flush=True)
+            cmd_process.kill()
             try:
-                cmd_process.kill()
-            except Exception:
-                pass
-
+                cmd_process.wait(timeout=5)
+                print("cmd.exe process terminated", flush=True)
+            except subprocess.TimeoutExpired:
+                print("Warning: cmd.exe did not terminate within timeout", flush=True)
 
 if __name__ == '__main__':
     sys.exit(main())
-

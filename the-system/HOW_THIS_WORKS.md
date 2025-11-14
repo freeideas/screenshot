@@ -2,6 +2,12 @@
 
 Transform use-case README documents into working, tested software through two AI-driven phases.
 
+This is nothing like vibe-coding. It is:
+- TEST DRIVEN (i.e. "TDD")
+- SPEC DRIVEN (i.e. every important quality of the software is specified)
+- REPEATABLE (i.e. the same README documents will result in approximately the same software every time)
+- RELIABLE (i.e. if the README documents are good, the software will work)
+
 ---
 
 ## Overview
@@ -31,6 +37,7 @@ Create use-case oriented documentation:
 - `./readme/LIFECYCLE.md` -- Start, stop, environment
 - `./readme/API.md` -- Endpoints and responses
 - `./readme/DEPLOYMENT.md` -- Production deployment
+- `./readme/TESTING.md` -- Not necessary, but if there are certain scenarios you want to test
 
 **CLI tool:**
 - `README.md` -- Overview

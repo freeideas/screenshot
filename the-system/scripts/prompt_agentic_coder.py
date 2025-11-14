@@ -4,7 +4,7 @@
 # dependencies = []
 # ///
 
-DEFAULT_AGENT = "codex"
+DEFAULT_AGENT = "claude"
 
 """
 Wrapper for agentic coder - delegates to the configured agent CLI.

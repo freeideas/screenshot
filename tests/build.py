@@ -1,102 +1,77 @@
-#!/usr/bin/env -S uv run --script
-# type: ignore
-
-"""
-Build script for screenshot (C#) with NativeAOT.
-
-Usage:
-  uv run --script ./tests/build.py
-"""
+#!/usr/bin/env uvrun
+# /// script
+# requires-python = ">=3.8"
+# dependencies = []
+# ///
 
 import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-CODE_DIR = ROOT / "code" / "screenshot"
-CSProj = CODE_DIR / "Screenshot.csproj"
-RELEASE_DIR = ROOT / "release"
+def main():
+    # Fix Windows console encoding for Unicode characters
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
 
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    code_dir = os.path.join(project_root, "code")
+    release_dir = os.path.join(project_root, "release")
 
-def main() -> int:
-    # Pre-flight checks
-    if not CSProj.exists():
-        print(f"Missing project file: {CSProj}", file=sys.stderr)
-        return 2
+    # Delete existing artifacts in ./release/ that we'll recreate
+    if os.path.exists(release_dir):
+        print(f"Cleaning {release_dir}/")
+        shutil.rmtree(release_dir)
 
-    # Clean release directory for artifacts we recreate
-    if RELEASE_DIR.exists():
-        # Remove everything to avoid stale artifacts
-        shutil.rmtree(RELEASE_DIR)
-    RELEASE_DIR.mkdir(parents=True, exist_ok=True)
+    os.makedirs(release_dir, exist_ok=True)
 
-    # Build AOT self-contained
-    publish_aot_cmd = [
-        "dotnet",
-        "publish",
-        str(CSProj),
-        "-c",
-        "Release",
-        "-r",
-        "win-x64",
-        "-p:PublishAot=true",
-        "-p:SelfContained=true",
-        "-o",
-        str(RELEASE_DIR),
-        "--nologo",
-        "--verbosity",
-        "minimal",
-    ]
+    # Build the C# project with AOT compilation
+    print("Building screenshot.exe with AOT compilation...")
 
-    print("Building (AOT, self-contained)...")
-    aot = subprocess.run(publish_aot_cmd, cwd=ROOT)
-    if aot.returncode != 0:
-        print("AOT build failed; falling back to non-AOT self-contained build...", file=sys.stderr)
-        # Fallback: non-AOT, single-file, ReadyToRun to improve startup
-        publish_fallback_cmd = [
-            "dotnet",
-            "publish",
-            str(CSProj),
-            "-c",
-            "Release",
-            "-r",
-            "win-x64",
-            "-p:PublishAot=false",
-            "-p:PublishReadyToRun=true",
-            "-p:PublishSingleFile=true",
-            "-p:SelfContained=true",
-            "-o",
-            str(RELEASE_DIR),
-            "--nologo",
-            "--verbosity",
-            "minimal",
-        ]
-        fb = subprocess.run(publish_fallback_cmd, cwd=ROOT)
-        if fb.returncode != 0:
-            print("Fallback build failed as well.", file=sys.stderr)
-            return fb.returncode or 1
+    result = subprocess.run(
+        ["dotnet", "publish", "-c", "Release"],
+        cwd=code_dir,
+        capture_output=True,
+        text=True
+    )
 
-    # Verify artifact
-    exe = RELEASE_DIR / ("screenshot.exe" if os.name == "nt" else "screenshot")
-    if not exe.exists():
-        print(f"Build succeeded but artifact missing: {exe}", file=sys.stderr)
-        return 3
+    if result.returncode != 0:
+        print("Build failed:", file=sys.stderr)
+        print(result.stdout, file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        return 1
 
-    # Keep release/ aligned with documentation: only ship the executable.
-    # Remove any debug symbol files or other extras emitted by publish.
-    for item in RELEASE_DIR.iterdir():
-        if item.is_file() and item.suffix.lower() == ".pdb":
-            try:
-                item.unlink()
-            except Exception as e:
-                print(f"Warning: failed to remove {item.name}: {e}", file=sys.stderr)
+    print(result.stdout)
 
-    size = exe.stat().st_size
-    print(f"Built: {exe} ({size} bytes)")
+    # Find the build output directory
+    build_output = os.path.join(code_dir, "bin", "Release", "net8.0-windows", "win-x64", "publish")
+
+    if not os.path.exists(build_output):
+        print(f"Error: Build output directory not found: {build_output}", file=sys.stderr)
+        return 1
+
+    # Copy only the executable to ./release/
+    # AOT compilation produces a single .exe with no runtime dependencies
+    exe_path = os.path.join(build_output, "screenshot.exe")
+
+    if not os.path.exists(exe_path):
+        print(f"Error: screenshot.exe not found in {build_output}", file=sys.stderr)
+        return 1
+
+    dest_path = os.path.join(release_dir, "screenshot.exe")
+    shutil.copy2(exe_path, dest_path)
+    print(f"Copied screenshot.exe to {release_dir}/")
+
+    # Verify the executable was copied
+    if not os.path.exists(dest_path):
+        print(f"Error: Failed to copy screenshot.exe to {release_dir}", file=sys.stderr)
+        return 1
+
+    print(f"\nBuild successful!")
+    print(f"Release artifact: {dest_path}")
+
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

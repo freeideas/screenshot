@@ -2,18 +2,21 @@
 
 ## Overview
 
-Testing for `screenshot.exe` uses AI-based visual verification to confirm that captured screenshots plausibly match their window titles.
+Testing for `screenshot.exe` uses direct invocation of `./release/screenshot.exe` with AI-based visual verification to confirm that captured screenshots plausibly match their window titles.
+
+**Note:** This project tests `screenshot.exe` directly, not via `test-screenshot.py` (which is a general-purpose GUI testing tool used in other projects).
 
 ## Test Approach
 
-1. **Get Window List** -- Run `screenshot.exe` without arguments to get a list of currently open windows (format: `<window-id>\t<pid>\t"window title"`)
-2. **Random Selection** -- Pick a random window from the list
-3. **Capture by ID** -- Run `screenshot.exe --id <window-id>` to capture first screenshot
-4. **Capture by Title** -- Run `screenshot.exe --title "window title"` to capture second screenshot
-5. **Capture by PID** -- Run `screenshot.exe --pid <pid>` to capture third screenshot
-6. **Timestamped Filenames** -- Save all screenshots with timestamp prefixes: `YYYY-MM-DD-HH-MM-SS-microseconds_sanitized-window-title_by-id.png`, `by-title.png`, and `by-pid.png`
-7. **AI Verification (Part 1)** -- Use `the-system\scripts\prompt_agentic_coder.py` to ask an AI whether each .png file plausibly looks like a screenshot of the window title
-8. **AI Verification (Part 2)** -- Ask the AI to verify that all three screenshots are nearly identical (same window captured three different ways)
+Tests invoke `./release/screenshot.exe` directly with controlled `cmd.exe` windows for reliable, repeatable testing:
+
+1. **Help Mode Test** -- Validates window list format: `<window-id>\t<pid>\t"window title"`
+2. **Capture by ID Test** -- Captures first available window by its window ID, verifies with AI
+3. **Capture by Title Test** -- Launches controlled cmd.exe, captures by title, verifies with AI
+4. **Capture by PID Test** -- Launches controlled cmd.exe, captures by PID, verifies with AI
+5. **File Output Test** -- Validates PNG format signature, file creation, and window decorations
+
+All screenshots use timestamped filenames: `YYYY-MM-DD-HH-MM-SS-microseconds_description.png`
 
 ## Filename Convention
 
@@ -70,42 +73,24 @@ except Exception:
 
 ## AI-Based Visual Verification
 
-Instead of pixel-by-pixel comparison, we use AI to verify visual correctness:
-
-```bash
-# 1. Get list of available windows
-screenshot.exe
-
-# 2. Pick a random window (e.g., A32F	5432	"Notepad")
-# 3. Capture by ID
-screenshot.exe --id A32F ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png
-
-# 4. Capture by title
-screenshot.exe --title "Notepad" ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png
-
-# 5. Capture by PID
-screenshot.exe --pid 5432 ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png
-
-# 6. Ask AI to verify each screenshot matches the title
-echo "Does the image at ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png plausibly look like a screenshot of a window titled 'Notepad'?" | the-system/scripts/prompt_agentic_coder.py
-
-# 7. Ask AI to verify all three screenshots are nearly identical
-echo "Compare ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png, ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png, and ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png -- are these three screenshots nearly identical (same window captured three different ways)?" | the-system/scripts/prompt_agentic_coder.py
-```
-
-The AI examines:
+Instead of pixel-by-pixel comparison, we use AI to verify visual correctness. The AI examines:
 - Visual elements consistent with the window title
-- Presence of expected UI elements
-- Overall plausibility of the match
-- Whether all three capture methods (by ID, by title, and by PID) produce nearly identical screenshots
+- Presence of expected UI elements (title bar, borders)
+- Overall plausibility of the screenshot
 
 ## What We Test
 
-1. **File Creation** -- Verify that the output PNG files are created at the specified locations
-2. **Non-Zero Size** -- Verify that the output files have sizes greater than 0 bytes
-3. **Window List Format** -- Verify that the window list output follows the format: `<window-id>\t<pid>\t"window title"`
-4. **Visual Correctness** -- AI verifies each screenshot plausibly matches the window title
-5. **Multi-Method Consistency** -- AI verifies that capturing by ID, by title, and by PID produces nearly identical screenshots of the same window
+1. **Build Artifacts** -- Validates that `./release/screenshot.exe` is built correctly
+2. **Window List Format** -- Verifies format: `<window-id>\t<pid>\t"window title"` with proper tab separators
+3. **Capture by ID** -- Validates window ID is alphanumeric, file is created, AI verifies plausibility
+4. **Capture by Title** -- Validates title capture works, AI verifies plausibility
+5. **Capture by PID** -- Validates numeric PID capture works, AI verifies plausibility
+6. **Multiple Windows** -- When multiple windows share same title/PID, validates that one window is captured successfully
+7. **PNG Format** -- Validates PNG signature bytes and file structure
+8. **Window Decorations** -- AI verifies full window including title bar and borders is captured
+9. **File Creation** -- Verifies output files are created at specified locations with non-zero size
+10. **Output Messages** -- Validates that tool outputs `Wrote [filepath]` after successful capture
+11. **Output Path Handling** -- Tests explicit file paths, directory paths, and omitted paths (defaults to current directory)
 
 ## Rationale
 
@@ -120,29 +105,41 @@ AI-based verification provides:
 - Human-like assessment of "does this look right?"
 - No need for reference images
 
-## Test Examples
+## Running Tests
 
 ```bash
-# Get list of available windows (format: <window-id>\t<pid>\t"window title")
-screenshot.exe
-# Example output:
-#   A32F	5432	"Notepad"
-#   9939x4Q9	8124	"Google Chrome"
-#   123	4567	"Visual Studio Code"
+# Run all passing tests
+uv run --script ./the-system/scripts/test.py --passing
 
-# Capture same window by ID, title, and PID
-screenshot.exe --id A32F ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png
-screenshot.exe --title "Notepad" ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png
-screenshot.exe --pid 5432 ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png
+# Run a specific test
+uv run --script ./the-system/scripts/test.py ./tests/passing/test_02_capture_by_pid.py
+```
 
-# Verify files exist and have content
-test -f ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png && [ -s ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png ] && echo "PASS: File by ID exists and has content"
-test -f ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png && [ -s ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png ] && echo "PASS: File by title exists and has content"
-test -f ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png && [ -s ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png ] && echo "PASS: File by PID exists and has content"
+## Test Examples
 
-# Use AI to verify visual correctness of each screenshot
-echo "Does the image at ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png plausibly look like a screenshot of a window titled 'Notepad'? Answer with YES or NO and brief explanation." | the-system/scripts/prompt_agentic_coder.py
+Each test launches controlled windows and validates specific functionality:
 
-# Use AI to verify all three screenshots are nearly identical
-echo "Compare ./tmp/2025-11-10-14-54-02-779216_notepad_by-id.png, ./tmp/2025-11-10-14-54-03-123456_notepad_by-title.png, and ./tmp/2025-11-10-14-54-04-987654_notepad_by-pid.png -- are these three screenshots nearly identical (same window captured three different ways)? Answer with YES or NO and brief explanation." | the-system/scripts/prompt_agentic_coder.py
+**Capture by PID:**
+```python
+# Launch controlled cmd.exe window
+cmd_process = subprocess.Popen(['cmd.exe', '/K', 'title MyTestWindow'])
+cmd_pid = cmd_process.pid
+
+# Capture by PID
+screenshot.exe --pid {cmd_pid} ./tmp/{timestamp}_by-pid.png
+# Output: Wrote ./tmp/2025-11-10-13-59-01-48215_by-pid.png
+
+# AI verifies the screenshot plausibly shows a cmd.exe window
+```
+
+**Multiple Windows with Same Title/PID:**
+```python
+# Launch two cmd.exe windows with same title
+subprocess.Popen(['cmd.exe', '/K', 'title SameTitle'])
+subprocess.Popen(['cmd.exe', '/K', 'title SameTitle'])
+
+# Capture by title -- should capture one of them successfully
+screenshot.exe --title "SameTitle" ./tmp/output.png
+# Output: Wrote ./tmp/output.png
+# Test verifies: file was created and contains a valid screenshot (doesn't matter which window)
 ```
