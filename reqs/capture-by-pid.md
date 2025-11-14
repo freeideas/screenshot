@@ -1,50 +1,53 @@
-# Capture by Process ID Flow
+# Capture by PID Flow
 
-**Source:** ./README.md (Section: "Usage")
+**Source:** ./README.md
 
-Capture a screenshot of a window of a process specified by its process ID.
+Capture a screenshot of a window by matching its process ID.
 
-## $REQ_PID_001: Accept Process ID Argument
+## $REQ_PID_001: Accept PID Flag
+
 **Source:** ./README.md (Section: "Arguments")
 
-Accept `--pid <process-id>` flag with a numeric process ID value.
+Tool must accept --pid flag followed by a numeric process ID.
 
-## $REQ_PID_002: Capture Window by PID
+## $REQ_PID_002: Match Window by PID
+
 **Source:** ./README.md (Section: "Arguments")
 
-Capture a screenshot of a window of the process matching the specified process ID.
+Tool must capture a window belonging to the process with the specified numeric process ID.
 
-## $REQ_PID_003: Handle Multiple Windows for Process
-**Source:** ./README.md (Section: "Arguments")
+## $REQ_PID_003: Save PNG File
 
-If the process has multiple windows, one will be captured (unspecified which).
+**Source:** ./README.md (Section: "Technical Details")
 
-## $REQ_PID_004: Save to Explicit File Path
+Tool must save the captured screenshot in PNG format.
+
+## $REQ_PID_004: Capture Full Window
+
+**Source:** ./README.md (Section: "Technical Details")
+
+Tool must capture the full window including title bar and decorations.
+
+## $REQ_PID_005: Output to Specific File
+
 **Source:** ./README.md (Section: "Arguments")
 
 When output path is a .png file path, save screenshot to that exact location.
 
-## $REQ_PID_005: Save to Directory with Timestamped Filename
+## $REQ_PID_006: Output to Directory with Timestamp
+
 **Source:** ./README.md (Section: "Arguments")
 
-When output path is a directory, save screenshot with auto-generated timestamped filename in format `YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png`.
+When output path is a directory, generate timestamped filename in format YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png.
 
-## $REQ_PID_006: Save to Current Directory with Timestamped Filename
+## $REQ_PID_007: Output to Current Directory
+
 **Source:** ./README.md (Section: "Arguments")
 
-When output path is omitted, save screenshot to current directory with auto-generated timestamped filename.
+When output path is omitted, save to current directory with auto-generated timestamped filename.
 
-## $REQ_PID_007: Output Success Message
+## $REQ_PID_008: Display Success Message
+
 **Source:** ./README.md (Section: "Arguments")
 
 When screenshot is successfully captured, output "Wrote [filepath]" before exiting.
-
-## $REQ_PID_008: PNG Format Output
-**Source:** ./README.md (Section: "Technical Details")
-
-Output screenshots in PNG format.
-
-## $REQ_PID_009: Capture Full Window
-**Source:** ./README.md (Section: "Technical Details")
-
-Capture the full window including title bar and decorations.

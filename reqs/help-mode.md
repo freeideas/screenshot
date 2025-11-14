@@ -1,45 +1,59 @@
 # Help Mode Flow
 
-**Source:** ./README.md (Section: "Help Mode"), ./readme/HELP_TEXT.md
+**Source:** ./README.md, ./readme/HELP_TEXT.md
 
-Run without arguments to display usage information and window list.
+Display usage information and list all currently open windows when run without arguments.
 
-## $REQ_HELP_001: Display Usage Examples
+## $REQ_HELP_001: Run Without Arguments
+
+**Source:** ./README.md (Section: "Help Mode")
+
+When executable is run without any arguments, display help text and window list.
+
+## $REQ_HELP_002: Display Usage Examples
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-When run without arguments, display usage examples showing the three capture modes: by title, by PID, and by window ID.
+Output must include usage examples showing the three capture modes with title, pid, and id flags.
 
-## $REQ_HELP_002: Display Output Path Instructions
+## $REQ_HELP_003: Display Output Path Instructions
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-When run without arguments, display instruction text explaining output path behavior: explicit .png file paths, directory paths with auto-generated timestamped filenames, and omitted paths defaulting to current directory.
+Output must explain that output path is optional and describe the three path behaviors: explicit .png file, directory with timestamped filename, or omitted for current directory with timestamped filename.
 
-## $REQ_HELP_003: Display Window List Header
+## $REQ_HELP_004: Display Window List Header
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Output Format")
 
-When run without arguments, display header text "Currently open windows (id,pid,title):" before the window list.
+Output must include header line that labels the window list columns with format "Currently open windows (id,pid,title):".
 
-## $REQ_HELP_004: List Open Windows
+## $REQ_HELP_005: List Open Windows
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Field Descriptions")
 
-When run without arguments, display one line per currently open window with format: `<window-id>\t<pid>\t"window title"` where fields are separated by tab characters.
+Output must list all currently open windows with one line per window in format: window-id, tab character, pid, tab character, window title in double quotes.
 
-## $REQ_HELP_005: Window ID Format
+## $REQ_HELP_006: Window ID Format
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Window ID Format")
 
-Window IDs are alphanumeric hexadecimal values without 0x prefix.
+Window IDs must be alphanumeric hexadecimal values without 0x prefix.
 
-## $REQ_HELP_006: Process ID Format
-**Source:** ./readme/HELP_TEXT.md (Section: "Process IDs")
+## $REQ_HELP_007: PID Format
 
-Process IDs are numeric values that may be shared by multiple windows from the same application.
-
-## $REQ_HELP_007: Window Title Quoting
 **Source:** ./readme/HELP_TEXT.md (Section: "Field Descriptions")
 
-Window titles are displayed with double quotes in the window list.
+Process IDs must be numeric values.
 
-## $REQ_HELP_008: Exit Success
+## $REQ_HELP_008: Tab-Separated Fields
+
+**Source:** ./readme/HELP_TEXT.md (Section: "Field Descriptions")
+
+Fields in window list must be separated by tab characters.
+
+## $REQ_HELP_009: Exit With Success
+
 **Source:** ./readme/HELP_TEXT.md (Section: "Exit Code")
 
-Help mode exits with status code 0.
+Help mode must exit with status code 0.

@@ -11,25 +11,28 @@ using System.Text;
 class Program
 {
     [DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
     [DllImport("user32.dll")]
-    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    static extern bool IsWindowVisible(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern int GetWindowTextLength(IntPtr hWnd);
+    static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hWnd);
+    static extern int GetWindowTextLength(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct RECT
+    struct RECT
     {
         public int Left;
         public int Top;
@@ -37,182 +40,50 @@ class Program
         public int Bottom;
     }
 
-    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
-    private class WindowInfo
+    class WindowInfo
     {
         public IntPtr Handle { get; set; }
-        public string Title { get; set; } = "";
+        public string Title { get; set; }
         public uint ProcessId { get; set; }
+        public string WindowId { get; set; }
     }
 
-    static int Main(string[] args)
-    {
-        // Set console output encoding to UTF-8 for proper Unicode support
-        Console.OutputEncoding = Encoding.UTF8;
-
-        var windows = GetAllWindows();
-
-        // No arguments: show help and window list
-        if (args.Length == 0)
-        {
-            ShowHelp(windows);
-            return 0;
-        }
-
-        // Parse arguments
-        string mode = null;
-        string value = null;
-        string outputPath = null;
-
-        for (int i = 0; i < args.Length; i++)
-        {
-            if (args[i] == "--title" && i + 1 < args.Length)  // $REQ_TITLE_001: Accept title argument
-            {
-                mode = "title";
-                value = args[++i];
-            }
-            else if (args[i] == "--pid" && i + 1 < args.Length)  // $REQ_PID_001: Accept PID argument
-            {
-                mode = "pid";
-                value = args[++i];
-            }
-            else if (args[i] == "--id" && i + 1 < args.Length)  // $REQ_ID_001: Accept window ID argument
-            {
-                mode = "id";
-                value = args[++i];
-            }
-            else if (!args[i].StartsWith("--"))
-            {
-                outputPath = args[i];
-            }
-        }
-
-        if (mode == null || value == null)
-        {
-            Console.Error.WriteLine("Error: Must specify --title, --pid, or --id");
-            return 1;
-        }
-
-        // Find the window
-        WindowInfo targetWindow = null;
-
-        if (mode == "title")
-        {
-            // $REQ_TITLE_002: Find window by title
-            // Try exact match first
-            targetWindow = windows.FirstOrDefault(w => w.Title == value);
-
-            // If no exact match, try matching with "Administrator: " prefix
-            // (Windows prepends this to elevated process window titles)
-            if (targetWindow == null)
-            {
-                targetWindow = windows.FirstOrDefault(w => w.Title == $"Administrator:  {value}");
-            }
-
-            // If still no match, try with single space (some Windows versions use one space)
-            if (targetWindow == null)
-            {
-                targetWindow = windows.FirstOrDefault(w => w.Title == $"Administrator: {value}");
-            }
-        }
-        else if (mode == "pid")
-        {
-            if (uint.TryParse(value, out uint pid))
-            {
-                targetWindow = windows.FirstOrDefault(w => w.ProcessId == pid);
-            }
-        }
-        else if (mode == "id")
-        {
-            try
-            {
-                IntPtr handle = new IntPtr(Convert.ToInt64(value, 16));
-                targetWindow = windows.FirstOrDefault(w => w.Handle == handle);
-            }
-            catch
-            {
-                // Invalid hex value
-            }
-        }
-
-        if (targetWindow == null)
-        {
-            Console.Error.WriteLine($"Error: Window not found");
-            return 1;
-        }
-
-        // Determine output path
-        string finalPath = outputPath ?? ".";
-
-        // Check if outputPath is a directory or needs timestamped filename
-        if (string.IsNullOrEmpty(outputPath) || Directory.Exists(outputPath) || outputPath.EndsWith("/") || outputPath.EndsWith("\\"))
-        {
-            // $REQ_ID_004, $REQ_PID_004, $REQ_TITLE_004: Save to directory with timestamped filename
-            // $REQ_ID_005, $REQ_PID_005, $REQ_TITLE_005: Save to current directory with timestamped filename
-            // Generate timestamped filename
-            string directory = string.IsNullOrEmpty(outputPath) ? "." : outputPath.TrimEnd('/', '\\');
-            string timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss-ffffff");
-            finalPath = Path.Combine(directory, $"{timestamp}_screenshot.png");
-        }
-        // else: $REQ_ID_003, $REQ_PID_003, $REQ_TITLE_003: Save to explicit file path
-
-        // Ensure directory exists
-        string directory2 = Path.GetDirectoryName(finalPath);
-        if (!string.IsNullOrEmpty(directory2) && directory2 != ".")
-        {
-            Directory.CreateDirectory(directory2);
-        }
-
-        // Capture screenshot
-        if (CaptureWindow(targetWindow.Handle, finalPath))
-        {
-            Console.WriteLine($"Wrote {finalPath}");  // $REQ_ID_006, $REQ_PID_006, $REQ_TITLE_006: Output success message
-            return 0;
-        }
-        else
-        {
-            Console.Error.WriteLine("Error: Failed to capture screenshot");
-            return 1;
-        }
-    }
-
-    private static List<WindowInfo> GetAllWindows()
+    static List<WindowInfo> GetAllWindows()
     {
         var windows = new List<WindowInfo>();
 
         EnumWindows((hWnd, lParam) =>
         {
-            if (!IsWindowVisible(hWnd))
-                return true;
-
-            int length = GetWindowTextLength(hWnd);
-            if (length == 0)
-                return true;
-
-            var sb = new StringBuilder(length + 1);
-            GetWindowText(hWnd, sb, sb.Capacity);
-            string title = sb.ToString();
-
-            if (string.IsNullOrWhiteSpace(title))
-                return true;
-
-            GetWindowThreadProcessId(hWnd, out uint processId);
-
-            windows.Add(new WindowInfo
+            if (IsWindowVisible(hWnd))
             {
-                Handle = hWnd,
-                Title = title,
-                ProcessId = processId
-            });
+                int length = GetWindowTextLength(hWnd);
+                if (length > 0)
+                {
+                    var sb = new StringBuilder(length + 1);
+                    GetWindowText(hWnd, sb, sb.Capacity);
+                    string title = sb.ToString();
 
+                    uint processId;
+                    GetWindowThreadProcessId(hWnd, out processId);
+
+                    windows.Add(new WindowInfo
+                    {
+                        Handle = hWnd,
+                        Title = title,
+                        ProcessId = processId,
+                        WindowId = hWnd.ToInt64().ToString("X")
+                    });
+                }
+            }
             return true;
         }, IntPtr.Zero);
 
         return windows;
     }
 
-    private static void ShowHelp(List<WindowInfo> windows)
+    static void ShowHelp()
     {
         Console.WriteLine("Usage:");
         Console.WriteLine("  screenshot.exe --title \"window title\" [output.png|directory|]");
@@ -228,46 +99,148 @@ class Program
         Console.WriteLine();
         Console.WriteLine("Currently open windows (id,pid,title):");
 
+        var windows = GetAllWindows();
         foreach (var window in windows)
         {
-            string id = window.Handle.ToString("X");
-            Console.WriteLine($"{id}\t{window.ProcessId}\t\"{window.Title}\"");
+            Console.WriteLine($"{window.WindowId}\t{window.ProcessId}\t\"{window.Title}\"");
         }
     }
 
-    private static bool CaptureWindow(IntPtr hWnd, string filename)
+    static string GenerateTimestampedFilename()
     {
-        // $REQ_ID_002, $REQ_PID_002, $REQ_TITLE_002: Capture window by ID/PID/Title
-        // $REQ_ID_008, $REQ_PID_008, $REQ_TITLE_008: Capture full window with decorations
-        try
+        var now = DateTime.Now;
+        return $"{now:yyyy-MM-dd-HH-mm-ss-ffffff}_screenshot.png";
+    }
+
+    static string DetermineOutputPath(string outputArg)
+    {
+        if (string.IsNullOrEmpty(outputArg))
         {
-            // Get window dimensions including decorations
-            GetWindowRect(hWnd, out RECT rect);
-            int width = rect.Right - rect.Left;
-            int height = rect.Bottom - rect.Top;
-
-            if (width <= 0 || height <= 0)
-                return false;
-
-            // Create a bitmap with window dimensions
-            using (Bitmap bitmap = new Bitmap(width, height))
-            {
-                using (Graphics graphics = Graphics.FromImage(bitmap))
-                {
-                    // Capture the screen region where the window is located
-                    // This captures the full window including title bar and decorations
-                    graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, new Size(width, height), CopyPixelOperation.SourceCopy);
-                }
-
-                // Save as PNG
-                bitmap.Save(filename, ImageFormat.Png);  // $REQ_ID_007, $REQ_PID_007, $REQ_TITLE_007: PNG format
-            }
-
-            return true;
+            // No output specified: use current directory with timestamped filename
+            return Path.Combine(".", GenerateTimestampedFilename());
         }
-        catch
+
+        if (outputArg.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            // Explicit .png file
+            return outputArg;
+        }
+
+        // Assume it's a directory
+        if (!Directory.Exists(outputArg))
+        {
+            Directory.CreateDirectory(outputArg);
+        }
+        return Path.Combine(outputArg, GenerateTimestampedFilename());
+    }
+
+    static bool CaptureWindow(IntPtr hWnd, string outputPath)
+    {
+        RECT rect;
+        if (!GetWindowRect(hWnd, out rect))
         {
             return false;
         }
+
+        int width = rect.Right - rect.Left;
+        int height = rect.Bottom - rect.Top;
+
+        if (width <= 0 || height <= 0)
+        {
+            return false;
+        }
+
+        using (Bitmap bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+        {
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                IntPtr hdc = graphics.GetHdc();
+                try
+                {
+                    PrintWindow(hWnd, hdc, 0);
+                }
+                finally
+                {
+                    graphics.ReleaseHdc(hdc);
+                }
+            }
+
+            // Ensure output directory exists
+            string directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            bitmap.Save(outputPath, ImageFormat.Png);
+        }
+
+        return true;
+    }
+
+    static int Main(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            ShowHelp();
+            return 0;
+        }
+
+        if (args.Length < 2)
+        {
+            Console.Error.WriteLine("Error: Missing required arguments");
+            return 1;
+        }
+
+        string flag = args[0];
+        string value = args[1];
+        string outputArg = args.Length > 2 ? args[2] : "";
+
+        var windows = GetAllWindows();
+        WindowInfo targetWindow = null;
+
+        if (flag == "--title")
+        {
+            targetWindow = windows.FirstOrDefault(w => w.Title == value);
+        }
+        else if (flag == "--pid")
+        {
+            if (uint.TryParse(value, out uint pid))
+            {
+                targetWindow = windows.FirstOrDefault(w => w.ProcessId == pid);
+            }
+            else
+            {
+                Console.Error.WriteLine($"Error: Invalid PID '{value}'");
+                return 1;
+            }
+        }
+        else if (flag == "--id")
+        {
+            targetWindow = windows.FirstOrDefault(w =>
+                w.WindowId.Equals(value, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            Console.Error.WriteLine($"Error: Unknown flag '{flag}'");
+            return 1;
+        }
+
+        if (targetWindow == null)
+        {
+            Console.Error.WriteLine($"Error: No window found matching {flag} {value}");
+            return 1;
+        }
+
+        string outputPath = DetermineOutputPath(outputArg);
+
+        if (!CaptureWindow(targetWindow.Handle, outputPath))
+        {
+            Console.Error.WriteLine("Error: Failed to capture window");
+            return 1;
+        }
+
+        Console.WriteLine($"Wrote {outputPath}");
+        return 0;
     }
 }

@@ -43,9 +43,12 @@ def main():
                 actual_files.add(item.name)
 
     # Define expected files based on documentation
-    # From README.md: "AOT compiled with no runtime dependencies required"
-    # From tests/build.py line 54-63: Only screenshot.exe is copied to ./release/
-    # From tests/build.py line 55: "AOT compilation produces a single .exe with no runtime dependencies"
+    #
+    # From README.md line 84: "AOT compiled with no runtime dependencies required"
+    # From TESTING.md line 5: "Testing for `screenshot.exe` uses direct invocation of `./release/screenshot.exe`"
+    # From TESTING.md line 83: "Build Artifacts -- Validates that `./release/screenshot.exe` is built correctly"
+    #
+    # The documentation specifies a single standalone executable with NO runtime dependencies.
     expected_files = {
         'screenshot.exe',
     }
@@ -57,11 +60,8 @@ def main():
         for f in sorted(missing):
             print(f"  - {f}", flush=True)
         print("", flush=True)
-        print("Expected files based on documentation:", flush=True)
-        print("  - README.md states: 'AOT compiled with no runtime dependencies required'", flush=True)
-        print("  - tests/build.py copies only screenshot.exe to ./release/", flush=True)
-        print("", flush=True)
-        print("The build should produce a single standalone executable.", flush=True)
+        print("Expected a single standalone executable with no runtime dependencies.", flush=True)
+        print("See README.md line 84 and ./readme/TESTING.md", flush=True)
         return 1
 
     # Check for unexpected files
@@ -71,12 +71,9 @@ def main():
         for f in sorted(unexpected):
             print(f"  - {f}", flush=True)
         print("", flush=True)
-        print("Expected files based on documentation:", flush=True)
-        print("  - README.md states: 'AOT compiled with no runtime dependencies required'", flush=True)
-        print("  - tests/build.py copies only screenshot.exe to ./release/", flush=True)
-        print("", flush=True)
-        print("The release/ directory should contain ONLY screenshot.exe.", flush=True)
-        print("No runtime dependencies, DLLs, or other files should be present.", flush=True)
+        print("Documentation specifies a single standalone executable with NO runtime dependencies.", flush=True)
+        print("See README.md line 84: 'AOT compiled with no runtime dependencies required'", flush=True)
+        print("See ./readme/TESTING.md line 5 and line 83", flush=True)
         return 1
 
     print("✓ Build artifacts validation: PASS", flush=True)
