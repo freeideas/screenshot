@@ -43,12 +43,12 @@ SUPPORTED_AGENTS = {"codex", "claude"}
 
 
 def _find_on_path(base_name):
-    """Search PATH for {base_name}.exe, {base_name}.cmd, or {base_name}.bat (in that order)."""
-    for ext in [".exe", ".cmd", ".bat"]:
+    """Search PATH for {base_name}.exe, .cmd, .bat, or no extension (for Unix)."""
+    for ext in [".exe", ".cmd", ".bat", ""]:
         found = shutil.which(base_name + ext)
         if found:
             return found
-    raise FileNotFoundError(f"Could not find {base_name}.exe, {base_name}.cmd, or {base_name}.bat in PATH")
+    raise FileNotFoundError(f"Could not find {base_name} in PATH")
 
 
 def _process_codex_output(raw_stdout):

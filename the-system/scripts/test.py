@@ -24,8 +24,13 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent.parent
 os.chdir(project_root)
 
-# Path to uv.exe in the-system/bin/
-UV_PATH = script_dir.parent / 'bin' / 'uv.exe'
+# Path to uv binary in the-system/bin/ (platform-specific)
+if platform.system() == 'Windows':
+    UV_PATH = script_dir.parent / 'bin' / 'uv.exe'
+elif platform.system() == 'Darwin':
+    UV_PATH = script_dir.parent / 'bin' / 'uv.mac'
+else:
+    UV_PATH = script_dir.parent / 'bin' / 'uv.linux'
 
 # Create reports directory
 reports_dir = Path('./reports')

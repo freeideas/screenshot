@@ -27,16 +27,25 @@ if sys.stdout.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8')
 
 import subprocess
+import platform
 from pathlib import Path
 from typing import Dict, List, Optional
 
 
 def get_uv_path() -> Path:
-    """Get path to uv.exe in the-system/bin/"""
+    """Get path to uv binary in the-system/bin/ (platform-specific)"""
     script_dir = Path(__file__).parent
-    uv_path = script_dir.parent / 'bin' / 'uv.exe'
+
+    if platform.system() == 'Windows':
+        uv_name = 'uv.exe'
+    elif platform.system() == 'Darwin':
+        uv_name = 'uv.mac'
+    else:
+        uv_name = 'uv.linux'
+
+    uv_path = script_dir.parent / 'bin' / uv_name
     if not uv_path.exists():
-        raise FileNotFoundError(f"uv.exe not found at: {uv_path}")
+        raise FileNotFoundError(f"{uv_name} not found at: {uv_path}")
     return uv_path
 
 

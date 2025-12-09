@@ -21,12 +21,19 @@ if sys.stdout.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8')
 
 import subprocess
+import platform
 from pathlib import Path
 from typing import List, Tuple
 from datetime import datetime
-# Path to uv.exe in the-system/bin/
+
+# Path to uv binary in the-system/bin/ (platform-specific)
 SCRIPT_DIR = Path(__file__).parent
-UV_PATH = SCRIPT_DIR.parent / 'bin' / 'uv.exe'
+if platform.system() == 'Windows':
+    UV_PATH = SCRIPT_DIR.parent / 'bin' / 'uv.exe'
+elif platform.system() == 'Darwin':
+    UV_PATH = SCRIPT_DIR.parent / 'bin' / 'uv.mac'
+else:
+    UV_PATH = SCRIPT_DIR.parent / 'bin' / 'uv.linux'
 
 def run_cleanup():
     """Run the cleanup script before testing."""
