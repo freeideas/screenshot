@@ -1,18 +1,22 @@
-# WRITE_REQS.md -- Write Requirements from READMEs
+Create testable requirement flows in `./reqs/` based on use-case documentation in `./specs/` and `./README.md`.
 
-Create testable requirement flows in `./reqs/` based on use-case documentation in `./readme/` and `./README.md`.
+**ONLY TWO VALID SOURCES FOR REQUIREMENTS:**
+1. `./README.md`
+2. Files in `./specs/*.md`
 
-**This prompt is only used when no requirements exist yet.**
+**NO OTHER SOURCES ARE VALID.** The `./docs/` directory contains reference materials (API docs, protocol specs, .wsdl files) that may help you understand README/specs, but `./docs/` can NEVER be cited as a source. Every requirement MUST be traceable to `./README.md` or a file in `./specs/`.
+
+**Your task:** Write or edit ALL requirement files in `./reqs/` directory. Write, rewrite, or edit requirements from README/specs.
 
 ---
 
 ## THE SEVEN RULES FOR REQUIREMENTS
 
-1. **Complete Coverage** -- Every reasonably testable behavior in READMEs must have a $REQ_ID
-2. **No Invention** -- Only requirements from READMEs are allowed
-3. **No Overspecification** -- Requirements must not be more specific than READMEs
+1. **Complete Coverage** -- Every reasonably testable behavior in README.md or ./specs/ must have a $REQ_ID
+2. **No Invention** -- Only requirements from `./README.md` or `./specs/*.md` are allowed (./docs/ is NEVER a valid source)
+3. **No Overspecification** -- Requirements must not be more specific than README.md or ./specs/
 4. **Tell Stories** -- Flows go from start to shutdown (complete use-case scenarios)
-5. **Source Attribution** -- Every $REQ_ID cites: `**Source:** ./readme/FILE.md (Section: "Name")`
+5. **Source Attribution** -- Every $REQ_ID cites ONLY: `**Source:** ./README.md (Section: "Name")` or `**Source:** ./specs/FILE.md (Section: "Name")`
 6. **Unique IDs** -- Each $REQ_ID appears exactly once. Format: `$REQ_` followed by letters/digits/underscores/hyphens (e.g., $REQ_STARTUP_001)
 7. **Reasonably Testable** -- Requirements must have observable behavior that can be verified
 
@@ -24,7 +28,7 @@ A flow is a **sequence of steps from application start to shutdown** that can be
 
 **If README documentation presents specific named flows or scenarios, each one MUST be represented in its own requirements document.**
 
-**Example:** `./readme/LIFECYCLE.md` generates:
+**Example:** `./specs/LIFECYCLE.md` generates:
 - `./reqs/install.md` -- Install to ready state
 - `./reqs/startup-to-shutdown.md` -- Start server, use it, stop it
 - `./reqs/uninstall.md` -- Remove from system
@@ -36,32 +40,33 @@ A flow is a **sequence of steps from application start to shutdown** that can be
 ```markdown
 # Server Startup Flow
 
-**Source:** ./readme/LIFECYCLE.md
+**Source:** ./specs/LIFECYCLE.md
 
 Start server, verify ready, and shut down cleanly.
 
 ## $REQ_STARTUP_001: Launch Process
-**Source:** ./readme/LIFECYCLE.md (Section: "Starting the Server")
+**Source:** ./specs/LIFECYCLE.md (Section: "Starting the Server")
+<!-- NOTE: Source MUST be ./README.md or ./specs/*.md -- NEVER ./docs/ -->
 
 Start the server executable with default configuration.
 
 ## $REQ_STARTUP_002: Bind to Port
-**Source:** ./readme/LIFECYCLE.md (Section: "Network Binding")
+**Source:** ./specs/LIFECYCLE.md (Section: "Network Binding")
 
 Server must bind to configured port.
 
 ## $REQ_STARTUP_003: Log Ready Message
-**Source:** ./readme/LIFECYCLE.md (Section: "Startup Logging")
+**Source:** ./specs/LIFECYCLE.md (Section: "Startup Logging")
 
 Server must log when ready to accept connections.
 
 ## $REQ_STARTUP_004: Health Check Response
-**Source:** ./readme/LIFECYCLE.md (Section: "Health Monitoring")
+**Source:** ./specs/LIFECYCLE.md (Section: "Health Monitoring")
 
 GET /health must return 200 OK.
 
 ## $REQ_STARTUP_005: Shutdown Cleanly
-**Source:** ./readme/LIFECYCLE.md (Section: "Stopping")
+**Source:** ./specs/LIFECYCLE.md (Section: "Stopping")
 
 Server must exit gracefully when receiving SIGTERM.
 ```
@@ -73,9 +78,9 @@ Server must exit gracefully when receiving SIGTERM.
 **Not everything in documentation needs to be a requirement.** READMEs include descriptive context to help readers understand. Extract the actual requirement, not the description.
 
 **Examples:**
-- README: "Returns simple HTML" → Requirement: "Returns HTML with 200 OK" (not "HTML must be simple")
-- README: "Returns the same HTML each time" → Requirement: "Returns HTML" (not "Must return identical content every time")
-- README: "Polls file every 500ms" → Requirement: "Detects file changes" (not "Must poll every 500ms")
+- README: "Returns simple HTML" -> Requirement: "Returns HTML with 200 OK" (not "HTML must be simple")
+- README: "Returns the same HTML each time" -> Requirement: "Returns HTML" (not "Must return identical content every time")
+- README: "Polls file every 500ms" -> Requirement: "Detects file changes" (not "Must poll every 500ms")
 
 **DO write requirements for delivered software:**
 - Runtime behavior of executable with correct inputs (happy paths)
@@ -84,11 +89,12 @@ Server must exit gracefully when receiving SIGTERM.
 - Error handling **explicitly documented in README**
 - Observable outputs and responses
 - Architectural constraints (e.g., "use non-blocking I/O")
+- **Build output verification** (what files must exist in `./released/`, their names, sizes, structure)
 
 **DO NOT write requirements for:**
-- Build scripts or build processes
-- Development prerequisites (.NET SDK, compilers)
-- How to compile or package
+- Build scripts or build processes (how to compile, what commands to run)
+- Development prerequisites (.NET SDK, compilers, dev tools)
+- How to compile or package (step-by-step build instructions)
 - Development tooling or infrastructure
 - **Wrong inputs/edge cases** (unless README explicitly documents error behavior)
 - **Negative capabilities** (e.g., "does not support UDP" - absence of feature)
@@ -96,7 +102,7 @@ Server must exit gracefully when receiving SIGTERM.
 - **Natural consequences** (e.g., OOM crashes, data loss on process kill)
 - **OS/runtime behavior** (e.g., process termination on SIGKILL)
 
-**Why?** Customers receive built executable from `./release/`. Requirements focus on what the delivered product does with correct usage, not exhaustive error testing.
+**Why?** Customers receive built executable from `./released/`. Requirements focus on what the delivered product does with correct usage, not exhaustive error testing.
 
 ---
 
@@ -106,22 +112,28 @@ Server must exit gracefully when receiving SIGTERM.
 
 Read thoroughly:
 - `./README.md`
-- All files in `./readme/`
+- All files in `./specs/*.md`
 
-Identify reasonably testable behaviors **of delivered software:**
+You may skim `./docs/` to understand technical context (e.g., WSDL schemas, API references), but **./docs/ can NEVER be cited as a source**. If a behavior appears only in `./docs/` and not in README.md or ./specs/, it is NOT a requirement.
+
+Identify reasonably testable behaviors **of delivered software:** anchored in README.md or ./specs/ only.
 - Actions users take with executable (with correct inputs)
 - System responses (to valid requests)
 - Observable outputs
 - Error conditions **explicitly documented in README**
 - Success criteria
+- **Contents of ./released/ directory** (what files must be present after build)
 
 **Skip sections about:**
-- "Building from source"
-- "Development prerequisites"
-- Build/compilation instructions
+- "Building from source" (HOW to compile)
+- "Development prerequisites" (what tools are needed to build)
+- Build/compilation instructions (steps to run the build)
 - Limitations stated as absences ("doesn't support X")
 - Performance/load claims ("handles 10k req/sec")
-- What happens with wrong inputs (unless README documents it)
+- What happens with wrong inputs (unless README.md or ./specs/ documents it)
+- Behaviors described only in `./docs/` (./docs/ is NEVER a valid source)
+
+**Important distinction:** If specs document **WHAT must be in ./released/**, that IS a requirement (testable artifact verification). If specs document **HOW to build**, that is NOT a requirement (build process).
 
 ### Step 2: Identify User Flows
 
@@ -147,7 +159,7 @@ For each flow:
 ### Step 4: Write Each Requirement
 
 For each requirement:
-1. **ID:** Format is `$REQ_` followed by any combination of letters, digits, underscores, hyphens. Must be unique across all files. Pretty examples: `$REQ_STARTUP_001`, `$REQ_LOGGING_002`
+1. **ID:** Format is `$REQ_` followed by uppercase letters, digits, and underscores. Must be unique across all files. Examples: `$REQ_STARTUP_001`, `$REQ_BUILD_002`, `$REQ_HTTP_003`
 2. **Title:** Short description
 3. **Source:** Cite README file and section
 4. **Description:** Clear, testable statement
@@ -164,24 +176,30 @@ For each requirement:
 ## Critical Distinctions
 
 **Happy paths vs. error exhaustion:**
-- ✓ "Accepts one directory argument" → this IS a requirement (describes correct usage)
-- ✗ "Exit with error if two directories provided" → skip unless README explicitly documents this
-- ✓ "Port number is required" → this IS a requirement (describes correct usage)
-- ✗ "Show error if port missing" → skip unless README explicitly documents this error
+- OK "Accepts one directory argument" -> this IS a requirement (describes correct usage)
+- X "Exit with error if two directories provided" -> skip unless README explicitly documents this
+- OK "Port number is required" -> this IS a requirement (describes correct usage)
+- X "Show error if port missing" -> skip unless README explicitly documents this error
 
 **Capabilities vs. absences:**
-- ✓ "Proxies TCP connections" → this IS a requirement (what it does)
-- ✗ "Does not support UDP" → skip (absence of feature, nothing to test)
-- ✓ "Returns error 'UDP not supported' if UDP attempted" → this IS a requirement IF README documents it
+- OK "Proxies TCP connections" -> this IS a requirement (what it does)
+- X "Does not support UDP" -> skip (absence of feature, nothing to test)
+- OK "Returns error 'UDP not supported' if UDP attempted" -> this IS a requirement IF README documents it
 
 **Architectural constraints vs. natural consequences:**
-- ✓ "Never block network I/O on disk writes" → this IS a requirement (architectural constraint)
-- ✗ "Will crash with OOM instead of blocking" → skip (natural consequence, not a feature)
-- ✓ "Buffer in memory when logging falls behind" → this IS a requirement (what system does)
+- OK "Never block network I/O on disk writes" -> this IS a requirement (architectural constraint)
+- X "Will crash with OOM instead of blocking" -> skip (natural consequence, not a feature)
+- OK "Buffer in memory when logging falls behind" -> this IS a requirement (what system does)
 
 **Explicit error handling vs. implied validation:**
-- ✓ README says "If config file missing, exit with error 'CONFIG_NOT_FOUND'" → this IS a requirement
-- ✗ README says "Requires config file" without mentioning error → skip the error behavior
+- OK README says "If config file missing, exit with error 'CONFIG_NOT_FOUND'" -> this IS a requirement
+- X README says "Requires config file" without mentioning error -> skip the error behavior
+
+**Build output vs. build process:**
+- OK "After build, ./released/ must contain exactly 4 files: App.exe, Plugin.dll, Interface.dll, config.json" -> this IS a requirement (testable artifact)
+- OK "ConnectorWebApp.exe must be ~80-100MB" -> this IS a requirement (verifiable size)
+- X "Run `dotnet publish -c released`" -> skip (build process instruction)
+- X "Requires .NET 8 SDK to compile" -> skip (development prerequisite)
 
 ---
 
@@ -224,10 +242,18 @@ Use descriptive, lowercase names with hyphens:
 
 ---
 
+## Your Task Summary
+
+1. **Read** all documentation (`./README.md` and `./specs/*.md` -- these are the ONLY valid sources)
+2. **Identify** testable flows (startup-to-shutdown sequences)
+3. **Write, rewrite, or edit all files** in ./reqs/ from scratch
+   - Ensure there is one .md file per flow
+4. **Tag** each requirement with unique $REQ_ID
+5. **Cite** source for every requirement (MUST be `./README.md` or `./specs/*.md`)
+
 ## Output
 
-Report when done:
+After writing, rewriting, or editing all requirement files, report:
 - Number of README files processed
-- Number of flow files created
-- List of flow files
-- Brief description of each flow
+- Number of flow files created in ./reqs/
+- List of flow files with brief description of each

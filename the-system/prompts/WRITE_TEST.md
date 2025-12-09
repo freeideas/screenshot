@@ -1,419 +1,215 @@
-# WRITE_TEST.md -- Write Test for Untested Requirement
+Write a test file for ONE requirement document.
 
-Write tests for requirements that have no test coverage.
+## Test Philosophy: Happy Path Only
 
----
+**Test that correct inputs produce correct outputs. Do NOT test failure modes.**
 
-## Project Philosophy
+- ✅ Valid plugin loads → server starts → SOAP works
+- ❌ Invalid plugin → server fails with error message (NOT REQUIRED)
+- ❌ Missing file → error message (NOT REQUIRED)
+- ❌ Corrupted input → graceful failure (NOT REQUIRED)
 
-**Follow @the-system/prompts/PHILOSOPHY.md:**
-- Build only what is explicitly required in `/reqs/`
-- No "nice to have" features
-- No undocumented edge cases
-- No error handling except where required
-- Keep tests simple -- prefer duplication over abstraction
+Unless a requirement explicitly says "MUST fail with error X when Y happens", do not write tests that sabotage the system and verify failure behavior.
 
----
+**Example of what NOT to do:**
+```python
+# DON'T: Testing what happens when you break things
+result = subprocess.run([exe, '--plugin', 'nonexistent.dll'])
+assert result.returncode != 0  # Verifying failure behavior
 
-## Test Structure
-
-**Runtime target:** Keep each test under one minute when possible. If a test file consistently takes longer, split the flow into multiple test files so each stays quick.
-
-### One Flow = One Test File
-
-```
-./reqs/startup.md → ./tests/failing/test_startup.py
-./reqs/api-basic.md → ./tests/failing/test_api_basic.py
+# DON'T: Creating invalid inputs to test error handling
+with open('invalid.dll', 'w') as f:
+    f.write('garbage')
+result = subprocess.run([exe, '--plugin', 'invalid.dll'])
+assert 'error' in result.stderr  # Verifying error messages
 ```
 
-**File naming:** Take flow filename, remove `.md`, replace `-` with `_`, prefix with `test_`, add `.py`, place in `./tests/failing/`
+**Example of what TO do:**
+```python
+# DO: Test that valid usage works
+proc = subprocess.Popen([exe, '--host', '127.0.0.1'], ...)
+line = proc.stdout.readline()
+assert 'Listening on port' in line  # Server started successfully
+```
 
-### Test File Template
+## Context
 
-**IMPORTANT: Do NOT use pytest. Write standalone Python scripts.**
+- **Requirement file:** {{REQ_FILE_PATH}}
+- **$REQ_IDs to test:** {{REQ_IDS}}
+- **Test file to write:** {{TEST_FILE_PATH}}
 
+## OVERRIDE: Project Testing Standards
+
+**IMPORTANT: Before following any instructions below, check if `./specs/TESTING.md` exists.**
+
+If `./specs/TESTING.md` exists:
+- Read it FIRST before writing any tests
+- Follow ALL instructions in `./specs/TESTING.md`
+- `./specs/TESTING.md` takes PRECEDENCE over any conflicting instructions in this prompt
+- Only use the instructions below for topics not covered in `./specs/TESTING.md`
+
+If `./specs/TESTING.md` does not exist, proceed with the instructions below.
+
+## Critical: $REQ_ID Coverage
+
+**EVERY $REQ_ID MUST BE MENTIONED:**
+
+1. **If testable:** Assert with comment tag
+   ```python
+   # $REQ_BUILD_001
+   assert Path('./released/MyApp.exe').exists()
+   ```
+
+2. **If NOT testable:** Comment explaining why
+   ```python
+   # $REQ_INTERNAL_001 - Not reasonably testable: Internal implementation detail
+   ```
+
+The script verifies all $REQ_IDs appear. Missing any = called again to fix.
+
+**Use plain Python** (not pytest): normal `assert`, `sys.exit(1)`, or exceptions.
+
+## Test Types
+
+**Type 1: Regular Tests (most common)**
+- Test ./released/ artifacts (black-box)
+- Run executables, make HTTP requests, verify files/behavior
+
+**Type 2: Visual Inspection Tests (for GUI/screenshot verification)**
+- Use `./the-system/scripts/visual-test.py` to verify screenshots match descriptions
+- Exits 0 if image matches description, 1 if not, 2 on error
+- Or import as module: `passed, explanation = visual_test.check_visual(image_path, description)`
+
+**Type 3: Code-Review Tests (exception)**
+- Inspect ./code/* for architectural requirements hard to test externally
+- Use pattern matching (`'threading.Thread' in content`) for simple checks
+- Use `./the-system/scripts/code-inspection-assertion.py` for complex architectural checks:
+  ```python
+  result = subprocess.run([
+      './the-system/bin/uv.exe', 'run', '--script',
+      './the-system/scripts/code-inspection-assertion.py',
+      "Uses Kestrel's thread pool (no manual thread creation)",
+      '--req-id', 'REQ_THREAD_001'
+  ], timeout=600)
+  assert result.returncode == 0
+  ```
+
+## Test File Structure
+
+**Required shebang:**
 ```python
 #!/usr/bin/env uvrun
 # /// script
 # requires-python = ">=3.8"
-# dependencies = [
-#   # Add test dependencies (no pytest)
-# ]
+# dependencies = ["requests"]  # List test dependencies
 # ///
 
 import sys
-# Fix Windows console encoding
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
-import subprocess
-import time
-
-def main():
-    """Test the entire flow from start to shutdown."""
-
-    try:
-        print("Starting test...", flush=True)
-
-        # Execute flow steps -- verify each $REQ_ID with assertions
-
-        # Example: Start app
-        print("Launching application...", flush=True)
-        process = subprocess.Popen(['./release/app.exe'])
-        print(f"Process started with PID {process.pid}", flush=True)
-        time.sleep(1)
-        assert process.poll() is None, "Process failed to start"  # $REQ_STARTUP_001
-
-        # More assertions for each $REQ_ID...
-
-        print("✓ All tests passed", flush=True)
-        return 0
-
-    except AssertionError as e:
-        print(f"✗ Test failed: {e}", flush=True)
-        return 1
-    finally:
-        # CRITICAL: Clean up -- kill processes, close connections
-        # Use kill() not terminate/signals (Windows signals propagate to parent)
-        if 'process' in locals() and process.poll() is None:
-            print("Cleaning up process...", flush=True)
-            process.kill()
-            process.wait(timeout=5)
+# Test functions here
 
 if __name__ == '__main__':
-    sys.exit(main())
+    # Call test functions, print results, exit 0 on success
 ```
 
----
+## External Dependencies
 
-## Context: Use-Case Documentation
+If test fails due to unavailable external service (not your code), exit with code 99:
+```python
+result = subprocess.run(['external-service', '--check'])
+if result.returncode != 0:
+    print("EXTERNAL_DEPENDENCY_FAILURE")
+    sys.exit(99)
+```
 
-For broader context about what the application does and why:
-- `./README.md` -- Project overview and architectural intent
-- `./readme/*.md` -- Detailed use-case documentation
+## Test Performance: "Reasonably Testable" Definition
 
-These documents explain the "why" behind requirements and provide user perspective. Refer to them when you need to understand the purpose and context of what you're testing.
+**A requirement is "reasonably testable" if you can verify it in under 60 seconds.**
 
-**🔴 CRITICAL: Check for Testing Strategy Documentation**
+Your test file runs AFTER build.py completes. The 3-minute timeout starts when your test begins.
 
-Before writing any test, check if testing strategies are documented:
-- Read `./README.md` for testing-related sections
-- Read any `./readme/*.md` files that mention testing approaches
-- If testing strategies exist, **follow them exactly**
-- Testing documentation may specify how to generate test data, what tools to use, or specific patterns to follow
-- For example, it might require using real services instead of mocks, or using specific data generation tools
-- **Failure to follow documented testing strategies will result in tests that don't match the project's approach**
+### Fast Operations (✅ Reasonable)
+- Run pre-built executables from ./released/
+- Make HTTP requests to running services
+- Read/write/check files
+- Use system DLLs or pre-built test fixtures
+- Copy and modify existing files
 
----
+### Slow Operations (❌ Not Reasonable in Tests)
+- Compile/build code (dotnet build, go build, cargo build, etc.)
+- Download packages (NuGet restore, pip install, npm install, etc.)
+- Run package managers or build tools
+- Build test fixtures during test execution
 
-## Instructions
+### Decision Process
 
-### Step 1: Read Testing Strategy (If Present)
+For each requirement, ask: "Can I verify this in <60 seconds?"
 
-**BEFORE doing anything else, check `./README.md` and `./readme/` for testing strategies.**
+**YES** → Write test with assertions
+**YES, with pre-built fixture** → Write test using fixture from ./released/
+**NO (needs build/download)** → Mark as not reasonably testable
 
-These files, if they contain testing guidance, provide mandatory testing patterns that override default approaches. Follow them exactly.
+**Remember:** build.py already ran. Your test should only test ./released/ artifacts.
 
-### Step 2: Read the Flow File
+## Process Cleanup (CRITICAL)
 
-You'll be given a $REQ_ID and its flow file. Read the entire flow to understand all requirements and their sequence.
+**If your test launches executables from ./released/, you MUST ensure they are stopped when the test finishes.**
 
-### Step 3: Determine Test File Path
+Tests that leave processes running cause file locking issues on subsequent builds/tests.
 
-Check if test file exists:
-- If `./tests/failing/test_FLOWNAME.py` exists: update it
-- If not: create it
-
-### Step 4: Write the Test
-
-Create one test function that:
-1. Executes flow from start to shutdown
-2. Verifies each $REQ_ID with assertions
-3. Tags each assertion with `# $REQ_ID`
-4. Cleans up in `finally` block
-
-**Critical:** Tests MUST NOT leave processes running or resources locked.
-
-**Debugging hangs:** Add lots of `print()` statements describing exactly what the test is doing at each step. Unexplained hangs are common bugs -- print statements are your best debugging tool.
-
-**🔴 CRITICAL: Always use `flush=True` on every print statement:**
+**Required pattern:**
 
 ```python
-print("Starting application...", flush=True)
-process = subprocess.Popen(['./release/app.exe'])
-print(f"Process started with PID {process.pid}, waiting for startup...", flush=True)
-time.sleep(2)
-print("Checking if process is still alive...", flush=True)
+import subprocess
+import atexit
+import signal
+import sys
+
+# Track processes launched by this test
+_test_processes = []
+
+def cleanup_test_processes():
+    """Kill any processes started by this test."""
+    for proc in _test_processes:
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=1)
+        except:
+            pass
+
+# Register cleanup to run on exit (even if test fails)
+atexit.register(cleanup_test_processes)
+
+# When launching processes, track them:
+proc = subprocess.Popen(['./released/MyApp.exe'])
+_test_processes.append(proc)
+
+# ... run your tests ...
+
+# Cleanup happens automatically via atexit
 ```
 
-**Why flush=True matters:**
-- Python buffers print output by default
-- When a test hangs or times out, buffered output may not be captured
-- The test runner captures output in real-time, but only sees what's been flushed
-- Using `flush=True` ensures every message is immediately visible in timeout diagnostics
-- This makes debugging hanging tests dramatically easier -- you'll see exactly where it stopped
+**Key points:**
+- Use `atexit.register()` so cleanup happens even when test fails
+- Track ALL processes you launch in `_test_processes`
+- Try `terminate()` first (graceful), then `kill()` if needed
+- This prevents DLL/file locking issues on Windows
 
-**Without flush=True:** Test hangs, you see nothing, can't debug
-**With flush=True:** Test hangs, you see "Starting subprocess.run()..." as the last line, immediately know where to look
+## Guidelines
 
-**Windows warning:** Always use `process.kill()` for cleanup. Never use `terminate()`, `send_signal()`, or `CTRL_C_EVENT` -- on Windows these propagate to the parent process and kill the test runner.
+- Use timeouts on subprocess calls
+- Clear failure messages
+- Let exceptions propagate (tests fail on exceptions)
 
-### Always Flush Output
+## Now: Write or edit the Test
 
-**Every `print()` statement in tests must use `flush=True`.**
+Read {{REQ_FILE_PATH}} and write or correct the test at {{TEST_FILE_PATH}}.
 
-Tests frequently hang due to subprocess issues, network waits, or deadlocks. When the test runner (test.py) times out a hanging test, it needs to show you exactly where execution stopped. Python's default output buffering can hide this critical information.
-
-**Good practice:**
-```python
-print("Step 1: Starting server...", flush=True)
-server = start_server()
-print(f"Step 2: Server PID {server.pid}, checking health...", flush=True)
-health_check()
-print("Step 3: Running test request...", flush=True)
-```
-
-**Bad practice (output may be lost on hang):**
-```python
-print("Step 1: Starting server...")  # ← Will be lost if test hangs here
-server = start_server()
-```
-
-This is especially critical for:
-- Steps that involve subprocess launches
-- Network operations that might block
-- File operations that might deadlock
-- Any operation with a timeout
-
-The test runner has been enhanced to capture output in real-time and kill hanging processes, but it can only show you output that has been flushed.
-
-### Step 5: Tag Each Assertion
-
-```python
-assert condition, "message"  # $REQ_STARTUP_001
-```
-
-**Format:** `$REQ_` followed by any combination of letters, digits, underscores, hyphens
-
-This enables traceability from requirements to tests.
-
-**🔴 CRITICAL:** Every requirement you test MUST have a `# $REQ_ID` tag on its assertion/verification line in the actual test code. The build indexer (`build-req-index.py`) scans the test file for these `$REQ_*` patterns to mark requirements as tested. If a requirement is missing a tag in the code:
-- It won't be marked as tested in the database
-- The system will ask to write a test for it again
-- You'll end up duplicating work
-
-**Do not rely on mentioning requirements in your summary.** Only tags in the actual code count.
-
----
-
-## Example
-
-**Flow: ./reqs/startup.md**
-```markdown
-## $REQ_STARTUP_001: Launch Process
-Start the server executable.
-
-## $REQ_STARTUP_002: Bind to Port
-Server must bind to port 43143.
-
-## $REQ_STARTUP_003: Health Check
-GET /health returns 200 OK.
-```
-
-**Test: ./tests/failing/test_startup.py**
-```python
-def main():
-    """Test server startup flow."""
-    import socket
-    import requests
-
-    try:
-        # Launch
-        process = subprocess.Popen(['./release/server.exe'])
-        time.sleep(1)
-        assert process.poll() is None, "Process not running"  # $REQ_STARTUP_001
-
-        # Port binding
-        sock = socket.socket()
-        result = sock.connect_ex(('localhost', 43143))
-        assert result == 0, "Port not bound"  # $REQ_STARTUP_002
-        sock.close()
-
-        # Health check
-        response = requests.get('http://localhost:43143/health')
-        assert response.status_code == 200, "Health check failed"  # $REQ_STARTUP_003
-
-        print("✓ All tests passed")
-        return 0
-
-    except AssertionError as e:
-        print(f"✗ Test failed: {e}")
-        return 1
-    finally:
-        if 'process' in locals() and process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
-```
-
----
-
-## Architectural Requirements (Rare)
-
-Some requirements specify **implementation patterns** rather than behavior:
-- "Logging never blocks on disk I/O"
-- "Uses async/await for all network operations"
-
-**These are rare.** For architectural requirements, write a test that invokes AI code review:
-
-```python
-def main():
-    """Verify non-blocking logging (architectural requirement)."""
-
-    prompt = """Follow instructions in @the-system/prompts/CODE_REVIEW_FOR_REQUIREMENT.md
-
-Requirement: $REQ_LOGGING_001 - Logging never blocks on disk I/O
-
-Check for: memory buffer, async disk writes, immediate return from log calls"""
-
-    result = subprocess.run(
-        ['uv', 'run', '--script', './the-system/scripts/prompt_agentic_coder.py'],
-        input=prompt, capture_output=True, text=True, encoding='utf-8'
-    )
-
-    assert result.returncode == 0  # $REQ_LOGGING_001
-    assert 'VERDICT: PASS' in result.stdout  # $REQ_LOGGING_001
-```
-
-**See @the-system/prompts/CODE_REVIEW_FOR_REQUIREMENT.md for details on architectural testing.**
-
----
-
-## Build Artifact Checks
-
-For requirements about **build artifacts** (what files exist in `./release/`), use simple Python code to check the directory. Do NOT create AI prompts for this.
-
-**Simple check example:**
-```python
-from pathlib import Path
-
-# Verify ./release/ contains expected executable
-exe_path = Path('./release/subcomponent.exe')
-assert exe_path.exists(), "subcomponent.exe missing from ./release/"  # $REQ_SIMPLE_001
-assert exe_path.is_file(), "subcomponent.exe must be a file"  # $REQ_SIMPLE_001
-
-# Verify no debug/runtime files
-release_files = list(Path('./release/').iterdir())
-for f in release_files:
-    assert not f.name.endswith('.pdb'), "No .pdb debug files"  # $REQ_ARTIFACT_001
-    assert not f.name.endswith('.dll'), "No .dll runtime files"  # $REQ_ARTIFACT_001
-```
-
-**DO NOT create AI prompts for build artifact validation.** Just use `Path()` and `assert` statements.
-
-**However, skip these build-related requirements entirely:**
-- Compilation or build process (e.g., "Must be compiled with .NET 8", "AOT compilation")
-- Project configuration (.csproj, build files)
-- Development prerequisites (compilers, SDKs)
-- Build scripts or build tooling
-
-These should not be in the flow files (see @the-system/prompts/WRITE_REQS.md).
-
----
-
-## GUI/Visual Testing
-
-For requirements about **visual output or window rendering** (screenshots, window appearance, GUI elements), use the `test-screenshot.py` tool.
-
-**When to use:**
-- Requirements about what appears on screen
-- Window decorations, title bars, visual elements
-- Screenshot capture verification
-- Any requirement mentioning "window", "display", "screenshot", or visual output
-
-**Example:**
-```python
-def main():
-    """Test that window renders correctly."""
-
-    prompt = "Verify the window shows a 'Save' button in the toolbar"
-
-    result = subprocess.run(
-        ['uv', 'run', '--script', './the-system/scripts/test-screenshot.py',
-         '--wait', '3', '--launch', './release/myapp.exe'],
-        input=prompt, capture_output=True, text=True, encoding='utf-8'
-    )
-
-    # test-screenshot.py exits 0 if AI says YES, 1 if NO
-    assert result.returncode == 0, "Screenshot verification failed"  # $REQ_GUI_001
-```
-
-The tool launches the app, waits, captures by PID, kills the process, and asks AI if the screenshot matches the description.
-
-**See `readme/TESTING.md` for full details on GUI testing strategy.**
-
----
-
-## Important Notes
-
-### 🔴 Tag Requirements in Code (Not Just in Summary)
-
-This is the #1 source of duplicate test requests. The build indexer scans test files for `$REQ_*` patterns in the actual code:
-
-- ✅ `assert foo == bar  # $REQ_LOG_001` — requirement marked as tested
-- ❌ "This test covers $REQ_LOG_001" in your summary — requirement NOT marked as tested
-- ❌ `assert foo == bar  # Tests $REQ_LOG_001` — wrong format, won't be detected
-
-Every requirement you test must have an inline comment tag: `# $REQ_ID` (exactly that format, on the assertion line).
-
-### Test All Requirements in Flow
-
-Even if asked about one $REQ_ID, test **ALL** requirements in that flow file. One flow = one test file that executes the complete sequence.
-
-### Tests Start in ./tests/failing/
-
-New tests go in `./tests/failing/`. When passing, they're moved to `./tests/passing/`.
-
-### Do NOT Test Ctrl-C/SIGINT
-
-**Never write tests that send Ctrl-C or SIGINT to the application under test.**
-
-On Windows, Ctrl-C signals propagate to parent processes, killing the test runner. Ctrl-C requirements (like `$REQ_SHUTDOWN_001`, `$REQ_SHUTDOWN_005`) are valid and the functionality works in normal operation, but cannot be safely tested in the automated test suite.
-
-If a requirement mentions Ctrl-C/SIGINT:
-- Accept that it's valid but untestable in automated tests
-- Do NOT write assertions to verify Ctrl-C behavior
-- Skip those specific requirements in your test
-- Use `process.kill()` for all test cleanup instead
-
-### Do NOT Use pytest
-
-Write standalone scripts with `main()`, `assert` statements, return codes, and `sys.exit(main())`.
-
-### Add Dependencies
-
-Add packages to script metadata:
-```python
-# dependencies = [
-#   "requests",  # For HTTP testing
-# ]
-```
-
----
-
-## Summary
-
-1. Read entire flow file
-2. Create/update test file in `./tests/failing/`
-3. Write test function verifying ALL flow requirements
-4. Tag assertions with `# $REQ_ID`
-5. Use `try`/`finally` for cleanup
-6. Make executable with `uv run --script`
-
-## Report Your Work
-
-Write a brief summary of what you created:
-- Test file path
-- Flow being tested
-- Requirements covered (list $REQ_IDs)
-- Test approach (how you verify behavior)
+**Remember:** EVERY $REQ_ID must appear (assertion tag or `# $REQ_ID - Not testable: [reason]` comment

@@ -1,16 +1,14 @@
-# fix_req-testability.md -- Check for Untestable Requirements
-
 Check if all requirements in `./reqs/` are testable (have observable behavior).
 
 ---
 
 ## THE SEVEN RULES FOR REQUIREMENTS
 
-1. **Complete Coverage** -- Every reasonably testable behavior in READMEs must have a $REQ_ID
-2. **No Invention** -- Only requirements from READMEs are allowed
-3. **No Overspecification** -- Requirements must not be more specific than READMEs
+1. **Complete Coverage** -- Every reasonably testable behavior in `./README.md` or `./specs/*.md` must have a $REQ_ID
+2. **No Invention** -- Only requirements from `./README.md` or `./specs/*.md` are allowed (./docs/ is NEVER a valid source)
+3. **No Overspecification** -- Requirements must not be more specific than `./README.md` or `./specs/*.md`
 4. **Tell Stories** -- Flows go from start to shutdown (complete use-case scenarios)
-5. **Source Attribution** -- Every $REQ_ID cites: `**Source:** ./readme/FILE.md (Section: "Name")`
+5. **Source Attribution** -- Every $REQ_ID cites ONLY: `**Source:** ./README.md (Section: "Name")` or `**Source:** ./specs/FILE.md (Section: "Name")`
 6. **Unique IDs** -- Each $REQ_ID appears exactly once. Format: `$REQ_` followed by letters/digits/underscores/hyphens (e.g., $REQ_STARTUP_001)
 7. **Reasonably Testable** -- Requirements must have observable behavior that can be verified
 
@@ -39,7 +37,7 @@ prompt = """Please follow the instructions in @the-system/prompts/CODE_REVIEW_FO
 Requirement to verify:
 $REQ_ARCH_001: [requirement text]
 """
-result = subprocess.run(['uv', 'run', '--script', './the-system/scripts/prompt_agentic_coder.py'],
+result = subprocess.run(['./the-system/bin/uv.exe', 'run', '--script', './the-system/scripts/prompt_agentic_coder.py'],
                        input=prompt, capture_output=True, text=True, encoding='utf-8')
 assert 'VERDICT: PASS' in result.stdout  # $REQ_ARCH_001
 ```
@@ -49,7 +47,7 @@ Whenever you create or update these tests, aim to keep each run under a minute; 
 ### 3. Limitation/Capability (informational, no test needed)
 - "TCP only" / "No UDP support"
 - "Windows only"
-- "Pre-built binaries available in ./release/"
+- "Pre-built binaries available in ./released/"
 - "Supports Ctrl-C to stop" / "Responds to SIGINT" / "Can be stopped with Ctrl-C"
 
 **Note on Ctrl-C/SIGINT:** These requirements are valid and the functionality works in normal operation, but cannot be safely tested on Windows because Ctrl-C signals propagate to parent processes, killing the test runner.
@@ -59,27 +57,27 @@ Whenever you create or update these tests, aim to keep each run under a minute; 
 ## Untestable Requirements (Flag These)
 
 **Performance and load characteristics (difficult to test reliably):**
-- ✗ "Handles 10,000 requests per second" -- hard to test consistently
-- ✗ "Low latency" -- subjective and environment-dependent
-- ✗ "Fast startup" -- relative and unreliable to verify
-- ✗ "Scales to high traffic" -- difficult to test consistently
+- X "Handles 10,000 requests per second" -- hard to test consistently
+- X "Low latency" -- subjective and environment-dependent
+- X "Fast startup" -- relative and unreliable to verify
+- X "Scales to high traffic" -- difficult to test consistently
 
 **Vague statements without observable behavior:**
-- ✗ "Should be user-friendly" -- subjective, not verifiable
-- ✗ "Must be reliable" -- vague, no observable criteria
-- ✗ "Good error messages" -- subjective without specific requirements
+- X "Should be user-friendly" -- subjective, not verifiable
+- X "Must be reliable" -- vague, no observable criteria
+- X "Good error messages" -- subjective without specific requirements
 
 **Key difference:**
-- ✓ "System accepts X and does Y" → testable (happy path)
-- ✓ "System uses architecture Y" → testable (architectural requirement)
-- ✗ "Fast performance" → untestable (performance claim)
-- ✗ "User-friendly interface" → untestable (subjective)
+- OK "System accepts X and does Y" -> testable (happy path)
+- OK "System uses architecture Y" -> testable (architectural requirement)
+- X "Fast performance" -> untestable (performance claim)
+- X "User-friendly interface" -> untestable (subjective)
 
 ---
 
 ## Your Task
 
-1. Read `./README.md` and all files in `./readme/`
+1. Read `./README.md` and all files in `./specs/`
 2. Read all flow files in `./reqs/`
 3. Identify requirements that are truly untestable (performance claims, vague subjective statements)
 4. **Focus on significant issues** -- ignore minor testability concerns; only flag clearly untestable requirements

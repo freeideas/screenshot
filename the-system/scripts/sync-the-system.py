@@ -1,4 +1,4 @@
-#!/usr/bin/env uvrun
+# Run via: ./the-system/bin/uv.exe run --script this_file.py
 # /// script
 # requires-python = ">=3.8"
 # dependencies = []
@@ -160,10 +160,10 @@ def main():
 
             print(f"Syncing {target}...", end=" ")
             if sync_directory(source_the_system, target):
-                print("✓")
+                print("OK")
                 synced.append(target)
             else:
-                print("✗")
+                print("X")
                 failed.append(target)
 
         # Print summary

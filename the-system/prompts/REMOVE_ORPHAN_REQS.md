@@ -1,5 +1,3 @@
-# REMOVE_ORPHAN_REQS.md -- Remove Orphan Requirement Tags
-
 You are an AI assistant tasked with cleaning up orphan requirement tags from tests and code.
 
 ---
@@ -27,7 +25,7 @@ You will be provided with a list of orphan $REQ_IDs and their locations.
 
 ### Step 1: Review the Orphan List
 
-The prompt will include a list like:
+You will receive a list like:
 ```
   $REQ_STARTUP_999:
     - ./tests/failing/test_startup.py:42

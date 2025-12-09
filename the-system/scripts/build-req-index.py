@@ -1,4 +1,4 @@
-#!/usr/bin/env uvrun
+# Run via: ./the-system/bin/uv.exe run --script this_file.py
 # /// script
 # requires-python = ">=3.8"
 # dependencies = []
@@ -11,8 +11,8 @@ if sys.stdout.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8')
 
 import os
-import re
 import sqlite3
+import re
 from pathlib import Path
 
 # Change to project root (two levels up from this script)
@@ -20,159 +20,206 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent.parent
 os.chdir(project_root)
 
-def extract_req_locations(filepath, category):
-    """Extract all $REQ_ID tags from a file with line numbers."""
-    locations = []
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f, start=1):
-                # Match $REQ_ID pattern (letters, digits, underscores, hyphens)
-                matches = re.findall(r'\$REQ_[A-Za-z0-9_-]+', line)
-                for req_id in matches:
-                    locations.append((req_id, str(filepath), line_num, category))
-    except Exception as e:
-        print(f"Warning: Could not read {filepath}: {e}", file=sys.stderr)
-    return locations
+def create_database():
+    """Create the requirements database with schema."""
+    db_path = './tmp/reqs.sqlite'
 
-def extract_req_definitions(filepath):
-    """Extract requirement definitions from a flow file in ./reqs/."""
-    definitions = []
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Split into sections by ## headers
-        # Pattern: ## $REQ_ID: Title
-        sections = re.split(r'\n##\s+(\$REQ_[A-Za-z0-9_-]+):\s*([^\n]+)', content)
-
-        # sections[0] is the preamble before first req
-        # sections[1::3] are req_ids
-        # sections[2::3] are titles
-        # sections[3::3] are the content blocks
-
-        for i in range(1, len(sections), 3):
-            if i+2 >= len(sections):
-                break
-
-            req_id = sections[i].strip()
-            title = sections[i+1].strip()
-            content_block = sections[i+2].strip()
-
-            # Extract source attribution from content
-            source_match = re.search(r'\*\*Source:\*\*\s*([^\n]+)', content_block)
-            source_attribution = source_match.group(1).strip() if source_match else ''
-
-            # Extract requirement text (everything after source line)
-            if source_match:
-                req_text = content_block[source_match.end():].strip()
-            else:
-                req_text = content_block
-
-            definitions.append((req_id, req_text, source_attribution, str(filepath)))
-
-    except Exception as e:
-        print(f"Warning: Could not parse {filepath}: {e}", file=sys.stderr)
-
-    return definitions
-
-def scan_directory(directory, extensions, category):
-    """Scan directory for files and extract $REQ_ID locations."""
-    locations = []
-    if not os.path.exists(directory):
-        return locations
-
-    for root, dirs, files in os.walk(directory):
-        for filename in files:
-            if not any(filename.endswith(ext) for ext in extensions):
-                continue
-            filepath = Path(root) / filename
-            locations.extend(extract_req_locations(filepath, category))
-
-    return locations
-
-def build_index():
-    """Build the requirements index database."""
-    # Create tmp directory
+    # Ensure tmp directory exists
     os.makedirs('./tmp', exist_ok=True)
 
-    # Remove existing database
-    db_path = './tmp/reqs.sqlite'
+    # Remove old database if exists
     if os.path.exists(db_path):
         os.remove(db_path)
 
-    # Create new database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Create tables
+    # Create req_definitions table
     cursor.execute('''
         CREATE TABLE req_definitions (
             req_id TEXT PRIMARY KEY,
-            req_text TEXT NOT NULL,
+            req_text TEXT,
             source_attribution TEXT,
-            flow_file TEXT NOT NULL
+            flow_file TEXT
         )
     ''')
 
+    # Create req_locations table
     cursor.execute('''
         CREATE TABLE req_locations (
-            req_id TEXT NOT NULL,
-            filespec TEXT NOT NULL,
-            line_num INTEGER NOT NULL,
-            category TEXT NOT NULL
+            req_id TEXT,
+            filespec TEXT,
+            line_num INTEGER,
+            category TEXT
         )
     ''')
 
-    cursor.execute('CREATE INDEX idx_loc_req_id ON req_locations(req_id)')
-    cursor.execute('CREATE INDEX idx_loc_category ON req_locations(category)')
+    # Create index for faster queries
+    cursor.execute('CREATE INDEX idx_req_locations_id ON req_locations(req_id)')
 
-    # Scan ./reqs/ for definitions
-    definitions = []
-    if os.path.exists('./reqs'):
-        for req_file in Path('./reqs').glob('*.md'):
-            definitions.extend(extract_req_definitions(req_file))
+    conn.commit()
+    conn.close()
 
-    # Insert definitions
-    cursor.executemany('''
-        INSERT INTO req_definitions (req_id, req_text, source_attribution, flow_file)
-        VALUES (?, ?, ?, ?)
-    ''', definitions)
+    return db_path
 
-    # Scan all directories for locations
-    all_locations = []
-    all_locations.extend(scan_directory('./reqs', ['.md'], 'reqs'))
-    all_locations.extend(scan_directory('./tests', ['.py'], 'tests'))
-    all_locations.extend(scan_directory('./code', ['.py', '.cs', '.go', '.rs', '.java', '.js', '.ts', '.c', '.cpp', '.h'], 'code'))
+def scan_reqs_files(conn):
+    """Scan ./reqs/*.md files for requirement definitions and locations."""
+    cursor = conn.cursor()
+    reqs_dir = Path('./reqs')
 
-    # Insert locations
-    cursor.executemany('''
-        INSERT INTO req_locations (req_id, filespec, line_num, category)
-        VALUES (?, ?, ?, ?)
-    ''', all_locations)
+    if not reqs_dir.exists():
+        return
+
+    for req_file in sorted(reqs_dir.glob('*.md')):
+        with open(req_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        for line_num, line in enumerate(lines, start=1):
+            # Find all $REQ_ID mentions in this line
+            req_ids = re.findall(r'\$REQ_[A-Z0-9_]+', line)
+
+            for req_id in req_ids:
+                # Check if this is a definition header (## $REQ_ID: Title)
+                is_definition_header = line.strip().startswith('##') and ':' in line
+
+                if is_definition_header:
+                    # Extract requirement text (title after the colon)
+                    text_after_id = line.split(req_id, 1)[1] if req_id in line else ""
+                    req_text = text_after_id.strip()
+
+                    # Look for source attribution on the next line
+                    source_attribution = None
+                    if line_num < len(lines):
+                        next_line = lines[line_num].strip()  # line_num is already 1-based, so lines[line_num] is next line
+                        if next_line.startswith('**Source:**'):
+                            # Extract everything after '**Source:**'
+                            source_attribution = next_line.replace('**Source:**', '').strip()
+
+                    # Store definition (only if not already stored)
+                    cursor.execute(
+                        "SELECT req_id FROM req_definitions WHERE req_id = ?",
+                        (req_id,)
+                    )
+                    if not cursor.fetchone():
+                        cursor.execute(
+                            "INSERT INTO req_definitions (req_id, req_text, source_attribution, flow_file) VALUES (?, ?, ?, ?)",
+                            (req_id, req_text, source_attribution, str(req_file))
+                        )
+
+                # Store location for all occurrences (definition or reference)
+                cursor.execute(
+                    "INSERT INTO req_locations (req_id, filespec, line_num, category) VALUES (?, ?, ?, ?)",
+                    (req_id, str(req_file), line_num, 'reqs')
+                )
 
     conn.commit()
 
-    # Print summary
-    cursor.execute('SELECT COUNT(DISTINCT req_id) FROM req_definitions')
-    def_count = cursor.fetchone()[0]
+def scan_test_files(conn):
+    """Scan ./tests/**/*.py files for requirement references."""
+    cursor = conn.cursor()
+    tests_dir = Path('./tests')
 
-    cursor.execute('SELECT COUNT(*) FROM req_locations WHERE category = "reqs"')
-    reqs_loc_count = cursor.fetchone()[0]
+    if not tests_dir.exists():
+        return
 
-    cursor.execute('SELECT COUNT(*) FROM req_locations WHERE category = "tests"')
-    tests_loc_count = cursor.fetchone()[0]
+    for test_file in tests_dir.rglob('*.py'):
+        with open(test_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
 
-    cursor.execute('SELECT COUNT(*) FROM req_locations WHERE category = "code"')
-    code_loc_count = cursor.fetchone()[0]
+        for line_num, line in enumerate(lines, start=1):
+            # Find all $REQ_ID mentions in this line
+            req_ids = re.findall(r'\$REQ_[A-Z0-9_]+', line)
 
-    conn.close()
+            for req_id in req_ids:
+                # Store location
+                cursor.execute(
+                    "INSERT INTO req_locations (req_id, filespec, line_num, category) VALUES (?, ?, ?, ?)",
+                    (req_id, str(test_file), line_num, 'tests')
+                )
 
-    print(f"Requirements index built: {db_path}")
-    print(f"  Definitions: {def_count} unique $REQ_IDs")
-    print(f"  Locations:   {reqs_loc_count} in ./reqs/, {tests_loc_count} in ./tests/, {code_loc_count} in ./code/")
+    conn.commit()
+
+def scan_code_files(conn):
+    """Scan ./code/**/* files for requirement references."""
+    cursor = conn.cursor()
+    code_dir = Path('./code')
+
+    if not code_dir.exists():
+        return
+
+    # Scan all files (not just specific extensions, to catch all code files)
+    for code_file in code_dir.rglob('*'):
+        # Skip directories
+        if code_file.is_dir():
+            continue
+
+        # Skip binary files (simple heuristic: check extension)
+        binary_extensions = {'.exe', '.dll', '.so', '.dylib', '.bin', '.obj', '.o', '.a', '.lib'}
+        if code_file.suffix.lower() in binary_extensions:
+            continue
+
+        try:
+            with open(code_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            for line_num, line in enumerate(lines, start=1):
+                # Find all $REQ_ID mentions in this line
+                req_ids = re.findall(r'\$REQ_[A-Z0-9_]+', line)
+
+                for req_id in req_ids:
+                    # Store location
+                    cursor.execute(
+                        "INSERT INTO req_locations (req_id, filespec, line_num, category) VALUES (?, ?, ?, ?)",
+                        (req_id, str(code_file), line_num, 'code')
+                    )
+        except (UnicodeDecodeError, IOError):
+            # Skip files that can't be read as text
+            continue
+
+    conn.commit()
+
+def print_summary(conn):
+    """Print a summary of the database contents."""
+    cursor = conn.cursor()
+
+    # Count definitions
+    cursor.execute("SELECT COUNT(*) FROM req_definitions")
+    num_definitions = cursor.fetchone()[0]
+
+    # Count unique req_ids in locations
+    cursor.execute("SELECT COUNT(DISTINCT req_id) FROM req_locations")
+    num_referenced = cursor.fetchone()[0]
+
+    # Count by category
+    cursor.execute("SELECT category, COUNT(*) FROM req_locations GROUP BY category")
+    category_counts = cursor.fetchall()
+
+    print(f"OK Requirements index built successfully")
+    print(f"  Database: ./tmp/reqs.sqlite")
+    print(f"  Definitions: {num_definitions}")
+    print(f"  Referenced: {num_referenced}")
+
+    if category_counts:
+        print(f"  Locations:")
+        for category, count in category_counts:
+            print(f"    {category}: {count}")
 
 def main():
-    build_index()
+    print("Building requirements index...")
+
+    # Create database
+    db_path = create_database()
+    conn = sqlite3.connect(db_path)
+
+    # Scan all directories
+    scan_reqs_files(conn)
+    scan_test_files(conn)
+    scan_code_files(conn)
+
+    # Print summary
+    print_summary(conn)
+
+    conn.close()
 
 if __name__ == '__main__':
     main()

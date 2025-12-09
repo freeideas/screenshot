@@ -1,10 +1,14 @@
 # Screenshot
 
-A simple command-line standalone AOT-compiled C# application that captures screenshots of specific windows by title, process ID, or window ID.
+A simple command-line standalone Rust application that captures screenshots of specific windows by title, process ID, or window ID.
 
 ## Overview
 
-`screenshot.exe` takes a screenshot of a window matching the specified criteria and saves it to a PNG file. This is similar to the functionality in `doc\example.cpp`.
+`screenshot.exe` takes a screenshot of a window matching the specified criteria and saves it to a PNG file.
+
+## Released files
+
+The only file in the released directory should be screenshot.exe
 
 ## Usage
 
@@ -18,6 +22,11 @@ screenshot.exe --pid 1234 output.png
 # Capture by window ID to specific file
 screenshot.exe --id A32F output.png
 
+# Shorthand: single argument is auto-detected as title, ID, or PID
+screenshot.exe "window title"
+screenshot.exe A32F
+screenshot.exe 1234
+
 # Capture to a directory with auto-generated timestamped filename
 screenshot.exe --title "window title" ./screenshots/
 
@@ -30,11 +39,18 @@ screenshot.exe
 
 ### Arguments
 
-The tool requires exactly one selection flag followed by its value:
+**Explicit flags:**
 
 - `--title <title>` -- Capture a window by its title. If multiple windows share the same title, one will be captured (unspecified which).
 - `--pid <process-id>` -- Capture a window of a process by its numeric process ID. If the process has multiple windows, one will be captured (unspecified which).
 - `--id <window-id>` -- Capture a window by its alphanumeric window ID. Window IDs uniquely identify a specific window.
+
+**Shorthand (no flag):**
+
+When the first argument doesn't start with `--`, the tool auto-detects the selection type:
+- If it starts with a quote (`"`), it is matched as a window title
+- Otherwise, it is matched as a window ID or process ID (whichever matches first; if a PID has multiple windows, one is captured)
+
 - `<output-path>` (optional) -- The file path or directory where the PNG screenshot will be saved:
   - If a `.png` file path is specified, the screenshot is saved to that exact location
   - If a directory is specified, a timestamped filename is automatically generated in the format `YYYY-MM-DD-HH-MM-SS-microseconds_screenshot.png` (e.g., `2025-11-10-23-30-22-293532_screenshot.png`)
@@ -77,11 +93,19 @@ screenshot.exe --title "Untitled - Notepad" ./screenshots/
 # Capture to current directory with auto-generated timestamped filename
 screenshot.exe --title "Untitled - Notepad"
 # Output: Wrote ./2025-11-10-23-30-22-293532_screenshot.png
+
+# Shorthand: auto-detect by title (starts with quote)
+screenshot.exe "Untitled - Notepad" ./output.png
+# Output: Wrote ./output.png
+
+# Shorthand: auto-detect by window ID or PID
+screenshot.exe A32F ./output.png
+# Output: Wrote ./output.png
 ```
 
 ## Technical Details
 
-- AOT compiled with no runtime dependencies required
+- Native compiled with no runtime dependencies
 - Outputs PNG format
 - Captures the full window including title bar and decorations
 

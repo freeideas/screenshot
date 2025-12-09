@@ -1,4 +1,4 @@
-#!/usr/bin/env uvrun
+# Run via: ./the-system/bin/uv.exe run --script this_file.py
 # /// script
 # requires-python = ">=3.8"
 # dependencies = []
@@ -12,9 +12,10 @@ into a timestamped directory in the OS temp folder.
 
 Protected items (NEVER moved):
   - ./README.md
-  - ./readme/
+  - ./specs/
   - ./the-system/
-  - ./subprojects/
+  - ./docs/
+  - ./extart/
 
 Everything else gets moved to: {TEMP}/nuke_backup_{timestamp}/
 """
@@ -22,7 +23,6 @@ Everything else gets moved to: {TEMP}/nuke_backup_{timestamp}/
 import sys
 import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from datetime import datetime
@@ -32,19 +32,18 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
-# Path to bundled uv.exe
-script_path = Path(__file__).resolve()
-project_root = script_path.parent.parent.parent
-UV_EXE = str(project_root / 'the-system' / 'bin' / 'uv.exe')
+# Import cleanup module
+from cleanup import main as cleanup_main
 
 # Items to PROTECT (never move these)
 PROTECTED_ITEMS = {
+    'PREREQUISITES.md',
     'README.md',
-    'readme',
+    'specs',
     'the-system',
-    'subprojects',
-    'doc',
     'docs',
+    'extart',
+    'subprojects',
 }
 
 def get_project_root():
@@ -54,15 +53,12 @@ def get_project_root():
 
 def run_cleanup():
     """Run cleanup.py script first."""
-    cleanup_script = Path(__file__).parent / 'cleanup.py'
-    if cleanup_script.exists():
-        print("🧹 Running cleanup.py first...")
-        try:
-            subprocess.run([UV_EXE, 'run', '--script', str(cleanup_script)], check=True)
-            print()
-        except subprocess.CalledProcessError as e:
-            print(f"⚠️  Warning: cleanup.py failed: {e}")
-            print()
+    print("CLEANUP Running cleanup first...")
+    try:
+        cleanup_main()
+    except Exception as e:
+        print(f"WARNING  Warning: cleanup failed: {e}")
+        print()
 
 def nuke_project():
     """Move all unprotected items to a timestamped temp directory."""
@@ -71,9 +67,9 @@ def nuke_project():
     # Run cleanup first
     run_cleanup()
 
-    print(f"🔥 Nuking project at: {project_root}")
+    print(f"NUKE Nuking project at: {project_root}")
     print()
-    print("🛡️  Protected items (will NOT be moved):")
+    print("SHIELD  Protected items (will NOT be moved):")
     for item in sorted(PROTECTED_ITEMS):
         print(f"   - ./{item}")
     print()
@@ -85,19 +81,19 @@ def nuke_project():
             items_to_move.append(item)
 
     if not items_to_move:
-        print("✅ Nothing to move (all items are protected)")
+        print("OK Nothing to move (all items are protected)")
         return
 
-    print("📦 Items to move:")
+    print("BOX Items to move:")
     for item in sorted(items_to_move):
-        item_type = "📁" if item.is_dir() else "📄"
+        item_type = "DIR" if item.is_dir() else "FILE"
         print(f"   {item_type} ./{item.name}")
     print()
 
     # Confirm operation
-    response = input("⚠️  Proceed with moving items to temp directory? [y/N]: ")
+    response = input("WARNING  Proceed with moving items to temp directory? [y/N]: ")
     if response.lower() != 'y':
-        print("❌ Aborted")
+        print("FAIL Aborted")
         return
 
     # Create timestamped backup directory
@@ -107,7 +103,7 @@ def nuke_project():
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     print()
-    print(f"📂 Moving items to: {backup_dir}")
+    print(f"DIR Moving items to: {backup_dir}")
     print()
 
     # Move items
@@ -116,16 +112,16 @@ def nuke_project():
         try:
             dest = backup_dir / item.name
             shutil.move(str(item), str(dest))
-            item_type = "📁" if dest.is_dir() else "📄"
-            print(f"✓ Moved {item_type} {item.name}")
+            item_type = "DIR" if dest.is_dir() else "FILE"
+            print(f"OK Moved {item_type} {item.name}")
             moved_items.append(item.name)
         except Exception as e:
-            print(f"✗ Failed to move {item.name}: {e}")
+            print(f"X Failed to move {item.name}: {e}")
 
     print()
-    print("✅ Nuke complete")
+    print("OK Nuke complete")
     print()
-    print(f"📦 Moved {len(moved_items)} item(s) to:")
+    print(f"BOX Moved {len(moved_items)} item(s) to:")
     print(f"   {backup_dir}")
     print()
     print("NOTE: Protected items remain in the project directory.")
@@ -135,8 +131,8 @@ if __name__ == '__main__':
         nuke_project()
     except KeyboardInterrupt:
         print()
-        print("❌ Aborted by user")
+        print("FAIL Aborted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
+        print(f"FAIL Error: {e}", file=sys.stderr)
         sys.exit(1)
